@@ -1,0 +1,17 @@
+
+> sunnik_calc@0.1.0 dev
+> next dev --turbo
+
+ ⚠ Port 3000 is in use by process 44397, using available port 3001 instead.
+   ▲ Next.js 15.5.4 (Turbopack)
+   - Local:        http://localhost:3001
+   - Network:      http://192.168.100.129:3001
+   - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Ready in 828ms
+ ○ Compiling / ...
+ ✓ Compiled / in 1497ms
+Layout rendered with globals.css
+ GET / 200 in 1850ms
+[?25h
