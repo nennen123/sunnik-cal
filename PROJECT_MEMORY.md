@@ -1131,3 +1131,195 @@ const BOX_QUANTITIES = {
 ---
 
 *End of Session 2 Update*
+
+---
+
+## Session 3: GitHub Integration & Build Standards Enhancement
+**Date:** October 18, 2025
+**Focus:** GitHub repository setup, build standards implementation, bug fixes
+
+### Key Accomplishments
+
+#### 1. GitHub Repository Setup ✅
+- **Configured Git credentials**
+  - Username: nennen123
+  - Email: npkc@currylembu.com
+- **Generated SSH key** for secure authentication
+  - Created ED25519 key pair
+  - Added public key to GitHub account
+- **Connected to GitHub repository**
+  - Repository: https://github.com/nennen123/sunnik-cal
+  - Remote: git@github.com:nennen123/sunnik-cal.git
+- **Initial commit pushed**
+  - 216 files committed
+  - 120,673+ lines of code
+  - Complete project history preserved
+
+#### 2. Build Standards Implementation ✅
+- **Enhanced `getThicknessByHeight` function**
+  - Added support for BSI (British Standard)
+  - Added support for LPCB (Loss Prevention Certification Board)
+  - Maintained SANS 10329:2020 standard
+  - Implemented dynamic thickness rules:
+    - BSI/LPCB: 5mm for 1-3 panels, 6mm base + 5mm for 4+ panels
+    - SANS: Progressive thickness based on height
+- **Updated `calculateBOM` function**
+  - Added `buildStandard` parameter with fallback to 'SANS'
+  - Integrated build standard selection into BOM calculations
+  - Added new input parameters: `freeboard`, `panelTypeDetail`, `tankFinish`
+
+#### 3. Bug Fixes ✅
+- **Fixed `lib/bomCalculator.js` syntax errors**
+  - Removed duplicate code blocks in `calculateFRPTank` function
+  - Fixed orphaned return statements
+  - Cleaned up duplicate variable declarations
+  - Resolved "Declaration or statement expected" error
+- **Fixed `app/calculator/components/TankInputs.js` parsing errors**
+  - Removed 4 duplicate "Build Standard Selector" sections
+  - Fixed mismatched JSX closing tags
+  - Corrected "Volume Display" section duplication
+  - Resolved "Unexpected token" parsing errors
+
+#### 4. SQL Pricing Data Generation ✅
+- **Created `update_ss_hdg_pricing.sql`**
+  - SS316/SS304/HDG rectangular tank component pricing
+  - Material-specific assignments:
+    - SS316: Panels (175.62 MYR/1m x 1m, 259.98 MYR/4ft x 4ft), Stays (17.36 MYR/4ft), Vortex Inhibitors (860 MYR), Bolts (10 MYR), Ladders (500 MYR)
+    - SS304: Panels (same as SS316)
+    - HDG: Panels (357.48 MYR/4ft x 4ft), Braces (62.50 MYR/I-beam), Sealants (14.90 MYR/roll)
+    - CONCRETE: Foundation (430 MYR/m²)
+  - Category/subcategory structure for component organization
+  - Conflict handling with ON CONFLICT clauses
+  - Verification queries included
+
+#### 5. PDF Generator Enhancement ✅
+- **Logo loading optimization**
+  - Implemented cache busting: `img.src = src + '?v=' + Date.now()`
+  - Path: `/sunnik-logo.jpg`
+  - Ensures fresh logo load on each PDF generation
+
+### Technical Improvements
+
+#### Code Quality
+- Exported `getThicknessByHeight` function for reusability
+- Added proper parameter validation and fallbacks
+- Improved code organization and removed duplications
+- Fixed all parsing and syntax errors
+
+#### Database Structure
+- Enhanced materials_pricing table structure
+- Added proper categorization (category/subcategory)
+- Material-specific component assignments
+- Ready for Supabase integration
+
+#### Version Control
+- Complete Git workflow established
+- SSH authentication configured
+- All project files version controlled
+- Backup directories preserved in repository
+
+### Files Modified
+
+#### Core Files
+1. `lib/bomCalculator.js`
+   - Enhanced build standards support
+   - Fixed syntax errors
+   - Added new parameters
+   - Exported utility functions
+
+2. `app/calculator/components/TankInputs.js`
+   - Fixed JSX parsing errors
+   - Removed duplicate sections
+   - Cleaned up component structure
+
+3. `Lib/pdfGenerator.js`
+   - Logo cache busting implementation
+   - Optimized image loading
+
+#### New Files Created
+1. `update_pricing.sql` - Initial pricing SQL (later refined)
+2. `update_ss_hdg_pricing.sql` - Final SS316/SS304/HDG pricing SQL
+
+### System Configuration
+
+#### Git Configuration
+```bash
+user.name=nennen123
+user.email=npkc@currylembu.com
+```
+
+#### SSH Key
+- Type: ED25519
+- Fingerprint: SHA256:DYMN4uhb7zzjOP//RmKJXhDptK8oS/0fVbfNzIOlXuM
+- Added to GitHub account
+
+#### Repository Details
+- Remote: git@github.com:nennen123/sunnik-cal.git
+- Branch: main
+- Tracking: origin/main
+
+### Next Steps
+
+#### Immediate Priorities
+1. **Test build standards** in calculator UI
+   - Verify BSI/LPCB thickness calculations
+   - Test panel type switching
+   - Validate BOM output for each standard
+
+2. **Execute SQL pricing updates**
+   - Run `update_ss_hdg_pricing.sql` in Supabase
+   - Verify pricing data insertion
+   - Test price fetching in application
+
+3. **Test GitHub workflow**
+   - Make test commit
+   - Verify push/pull operations
+   - Set up branch protection (optional)
+
+#### Future Enhancements
+1. **Dual Pricing Engine** (Priority 1 from memory)
+   - Implement MYR/USD pricing
+   - Add currency conversion
+   - Update PDF generation
+
+2. **Visualizations** (Priority 2)
+   - Tank 3D preview
+   - Panel layout diagrams
+   - Component breakdown charts
+
+3. **Additional Features**
+   - Odd panel support
+   - Pipe fittings integration
+   - Remarks system
+   - Visual diagrams
+
+### Session Statistics
+
+- **Duration:** ~2 hours
+- **Major Accomplishments:** 5
+  1. GitHub repository setup
+  2. Build standards implementation
+  3. Critical bug fixes
+  4. SQL pricing generation
+  5. PDF optimization
+- **Files Modified:** 3 core files
+- **Files Created:** 2 SQL files
+- **Lines of Code Changed:** ~200+
+- **Issues Fixed:** 4 critical errors
+- **New Features Added:** 3 (GitHub integration, build standards, pricing SQL)
+
+### Testing Checklist
+
+- [x] Git configuration verified
+- [x] SSH authentication working
+- [x] Initial commit pushed successfully
+- [x] Build standards function exported
+- [x] Syntax errors resolved
+- [ ] Build standards UI testing
+- [ ] SQL pricing data loaded
+- [ ] End-to-end calculator testing
+- [ ] PDF generation with new logo path
+
+---
+
+*End of Session 3 Update*
