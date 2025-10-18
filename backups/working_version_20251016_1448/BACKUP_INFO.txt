@@ -1,0 +1,29 @@
+========================================
+SUNNIK TANK CALCULATOR - WORKING BACKUP
+========================================
+
+Date: $(date)
+Version: Fully Working with SANS 10329:2020
+
+WHAT'S IN THIS BACKUP:
+- Complete BOM Calculator with SANS logic
+- Real pricing from 10,035 SKUs  
+- PDF generation working
+- All components (TankInputs, BOMResults, QuoteSummary)
+
+TEST RESULT:
+8m × 8m × 3m SS316 Tank = RM 102,641.24 ✅
+
+FILES INCLUDED:
+- app/ (all pages and components)
+- lib/ (bomCalculator.js, priceLoader.js, pdfGenerator.js)
+- public/ (sku_prices.csv)
+- Configuration files
+
+HOW TO RESTORE:
+1. Copy all files from this backup to project root
+2. Run: npm install
+3. Run: npm run dev
+4. Open: http://localhost:3000/calculator
+
+KNOWN ISSUES: None - fully working!

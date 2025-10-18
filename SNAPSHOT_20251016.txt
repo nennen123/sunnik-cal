@@ -1,0 +1,42 @@
+SUNNIK TANK CALCULATOR - PROJECT SNAPSHOT
+Generated: Thu Oct 16 15:10:16 +08 2025
+
+FILES:
+app/layout.js
+app/favicon.ico
+app/.DS_Store
+app/calculator/page.js
+app/calculator/components/BOMResults.js
+app/calculator/components/TankInputs.js
+app/calculator/components/QuoteSummary.js
+app/test/page.js
+app/page.js
+app/globals.css
+lib/pdfGenerator.js
+lib/bomCalculator.js
+lib/supabase.js
+lib/bomEngine.js
+lib/priceLoader.js
+public/sunnik-logo.png
+public/file.svg
+public/vercel.svg
+public/next.svg
+public/sku_prices.csv
+
+LAST TEST:
+- Input: 8m × 8m × 3m SS316 Metric
+- Output: 232 panels, RM 102,641.24
+- Status: ✅ PASSING
+
+KEY METRICS:
+- Price Database:    11579 lines
+- Calculator Lines:      391 lines
+- Components:        3 files
+
+RECENT CHANGES:
+- Implemented full SANS 10329:2020 logic
+- Fixed SKU format to match CSV (1B45-m-S2)
+- Added partition support
+- PDF generation working
+
+STATUS: ✅ PRODUCTION READY

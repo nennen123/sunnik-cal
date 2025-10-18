@@ -1,0 +1,155 @@
+========================================
+SUNNIK CALCULATOR - WITH BOLTS & NUTS
+========================================
+
+Date: Thu Oct 16 23:30:31 +08 2025
+Version: 1.2 - Complete BOM with Accessories
+
+✅ FEATURES COMPLETE:
+
+1. PANEL CALCULATION
+   - SANS 10329:2020 thickness standards
+   - Metric (1m) & Imperial (4ft) panels
+   - All materials: SS316, SS304, HDG, MS, FRP
+   - Partition support with correct panel codes
+
+2. SUPPORT STRUCTURES
+   - Internal Support (Tie Rods/Stays)
+     * Ø18mm bottom tier
+     * Ø14mm upper tiers
+     * Formula: (lengthPanels - 1) + (widthPanels - 1) per tier
+   
+   - External Support (I-Beams)
+     * I-beams at panel joints
+     * 4 size options: 100×50 to 250×125
+     * Bend angles, base plates, bolts included
+
+3. BOLTS & NUTS CALCULATION ⭐ NEW!
+   - SS Metric: 16 bolts per side
+   - SS Imperial: 20 bolts per side
+   - HDG Metric: 13 bolts per side
+   - HDG Imperial: 16 bolts per side
+   - Formula: edges × boltsPerSide for all 6 surfaces
+   
+4. PRICING & OUTPUT
+   - Real pricing from 10,035 SKUs
+   - Professional PDF export
+   - Complete BOM breakdown with accessories
+
+========================================
+TEST RESULTS:
+========================================
+
+Test 1: 2m × 2m × 2m SS316 Metric
+✅ PASS: 1,152 bolts (192 base + 192 roof + 768 walls)
+
+Test 2: 8m × 8m × 3m SS316 Metric
+✅ PASS: All calculations accurate
+
+Test 3: Support Structures
+✅ PASS: Internal support calculations correct
+✅ PASS: External support calculations correct
+
+Test 4: BOM Display
+✅ PASS: All sections showing correctly
+✅ PASS: Accessories section displaying
+✅ PASS: Bolt breakdown visible
+
+========================================
+FILE COUNT & SIZE:
+========================================
+
+Lib/bomCalculator.js:      704 lines
+app/calculator/page.js:      222 lines
+app/calculator/components/TankInputs.js:      213 lines
+app/calculator/components/BOMResults.js:      164 lines
+public/sku_prices.csv:    11579 rows
+
+========================================
+KNOWN WORKING SCENARIOS:
+========================================
+
+✅ Steel tanks (SS316, SS304, HDG, MS)
+✅ FRP tanks
+✅ Metric & Imperial panels
+✅ With/without partitions
+✅ Internal/External/No support
+✅ Bolts & nuts calculation
+✅ All 4 I-beam sizes
+✅ PDF export
+
+========================================
+STATUS: ✅ PRODUCTION READY
+========================================
+
+NEXT STEPS:
+- Add pricing for support & accessory SKUs to CSV
+- Deploy to production (Vercel)
+- Add more accessories (cleats, sealants, washers)
+- Implement BSI & LPCB standards
+- Add Supabase for quote management
+
+========================================
+HOW TO RESTORE:
+========================================
+
+1. Copy all files from this backup to project root
+2. Run: npm install
+3. Run: npm run dev
+4. Open: http://localhost:3000/calculator
+5. Test: 2m × 2m × 2m SS316 = 1,152 bolts
+
+========================================
+BACKUP CONTENTS:
+========================================
+
+total 32
+drwxr-xr-x@ 7 nelsonpeh  staff   224B Oct 16 23:29 Lib
+-rw-r--r--@ 1 nelsonpeh  staff   2.9K Oct 16 23:30 VERSION_INFO.txt
+drwxr-xr-x@ 9 nelsonpeh  staff   288B Oct 16 23:29 app
+-rw-r--r--@ 1 nelsonpeh  staff    21B Oct 16 23:30 next.config.js
+-rw-r--r--@ 1 nelsonpeh  staff   1.1K Oct 16 23:30 package.json
+drwxr-xr-x@ 9 nelsonpeh  staff   288B Oct 16 23:29 public
+-rw-r--r--@ 1 nelsonpeh  staff   253B Oct 16 23:30 tailwind.config.js
+
+backups/with_bolts_calculation_20251016_232951/Lib:
+total 96
+-rw-r--r--@ 1 nelsonpeh  staff    19K Oct 16 23:30 bomCalculator.js
+-rw-r--r--@ 1 nelsonpeh  staff   7.8K Oct 16 23:30 bomEngine.js
+-rw-r--r--@ 1 nelsonpeh  staff    10K Oct 16 23:30 pdfGenerator.js
+-rw-r--r--@ 1 nelsonpeh  staff   3.7K Oct 16 23:30 priceLoader.js
+-rw-r--r--@ 1 nelsonpeh  staff   353B Oct 16 23:30 supabase.js
+
+backups/with_bolts_calculation_20251016_232951/app:
+total 104
+drwxr-xr-x@ 4 nelsonpeh  staff   128B Oct 16 23:29 calculator
+-rw-r--r--@ 1 nelsonpeh  staff    25K Oct 16 23:30 favicon.ico
+-rw-r--r--@ 1 nelsonpeh  staff   152B Oct 16 23:30 globals.css
+-rw-r--r--@ 1 nelsonpeh  staff   206B Oct 16 23:30 layout.js
+-rw-r--r--@ 1 nelsonpeh  staff    14K Oct 16 23:30 page.js
+drwxr-xr-x@ 3 nelsonpeh  staff    96B Oct 16 23:29 test
+
+backups/with_bolts_calculation_20251016_232951/app/calculator:
+total 16
+drwxr-xr-x@ 5 nelsonpeh  staff   160B Oct 16 23:29 components
+-rw-r--r--@ 1 nelsonpeh  staff   7.5K Oct 16 23:30 page.js
+
+backups/with_bolts_calculation_20251016_232951/app/calculator/components:
+total 40
+-rw-r--r--@ 1 nelsonpeh  staff   6.5K Oct 16 23:30 BOMResults.js
+-rw-r--r--@ 1 nelsonpeh  staff   3.8K Oct 16 23:30 QuoteSummary.js
+-rw-r--r--@ 1 nelsonpeh  staff   7.7K Oct 16 23:30 TankInputs.js
+
+backups/with_bolts_calculation_20251016_232951/app/test:
+total 24
+-rw-r--r--@ 1 nelsonpeh  staff   9.3K Oct 16 23:30 page.js
+
+backups/with_bolts_calculation_20251016_232951/public:
+total 5488
+-rw-r--r--@ 1 nelsonpeh  staff   391B Oct 16 23:30 file.svg
+-rw-r--r--@ 1 nelsonpeh  staff   1.0K Oct 16 23:30 globe.svg
+-rw-r--r--@ 1 nelsonpeh  staff   1.3K Oct 16 23:30 next.svg
+-rw-r--r--@ 1 nelsonpeh  staff   2.6M Oct 16 23:30 sku_prices.csv
+-rw-r--r--@ 1 nelsonpeh  staff    17K Oct 16 23:30 sunnik-logo.png
+-rw-r--r--@ 1 nelsonpeh  staff   128B Oct 16 23:30 vercel.svg
+-rw-r--r--@ 1 nelsonpeh  staff   385B Oct 16 23:30 window.svg
