@@ -1,8 +1,8 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { calculateBOM } from '../../Lib/bomCalculator';
-import { loadPrices, getPrice } from '../../Lib/priceLoader';
-import { MS1390_DEFAULTS } from '../../Lib/accessoryDefaults';
+import { calculateBOM } from '../../lib/bomCalculator';
+import { loadPrices, getPriceValue } from '../../lib/priceLoader';
+import { MS1390_DEFAULTS } from '../../lib/accessoryDefaults';
 
 // Core components
 import TankInputs from './components/TankInputs';
@@ -21,14 +21,8 @@ import PriceSummary from './components/PriceSummary';
 function calculateBOMTotal(bom) {
   if (!bom) return 0;
 
-  // Use bom.summary.totalCost if available
-  if (bom.summary && bom.summary.totalCost) {
-    return bom.summary.totalCost;
-  }
-
-  // Otherwise calculate from all sections
   let total = 0;
-  const sections = ['base', 'walls', 'partition', 'roof', 'supports', 'accessories'];
+  const sections = ['base', 'walls', 'partitions', 'roof', 'internalSupport', 'externalSupport', 'hardware'];
 
   sections.forEach(sectionName => {
     const section = bom[sectionName];
