@@ -627,7 +627,7 @@ function getMaterialCode(material) {
  */
 function calculateFRPTank(lengthPanels, widthPanels, height, perimeter, panelType, supportType, iBeamSize, panelTypeDetail = 'type1') {
   const heightPanels = Math.ceil(height);
-  const typeNumber = panelTypeDetail === 'type2' ? '2' : '1';
+  const typeNumber = '3'; // FRP tanks always use prefix 3
 
   const bom = {
     base: [],
