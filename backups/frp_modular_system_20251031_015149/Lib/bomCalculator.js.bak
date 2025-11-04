@@ -1,35 +1,12 @@
 import { getPrice } from './priceLoader';
-import { calculateFRPTank as calculateComprehensiveFRPTank } from './frpCalculator';
 
 // lib/bomCalculator.js
 // Sunnik Tank BOM Calculation Engine - Full SANS 10329:2020 Logic + Support + Bolts
 
 /**
- * Enrich BOM items with prices from price database
- */
-function enrichBOMWithPrices(bom, prices) {
-  if (!prices) return bom;
-
-  // Handle both steel (supports) and FRP (structural) sections
-  const sections = ['base', 'walls', 'partition', 'roof', 'supports', 'structural', 'accessories', 'internalSupport', 'externalSupport'];
-  sections.forEach(section => {
-    if (Array.isArray(bom[section])) {
-      bom[section].forEach(item => {
-        if (item.sku && item.unitPrice === 0) {
-          const price = getPrice(prices, item.sku);
-          item.unitPrice = price || 0;
-        }
-      });
-    }
-  });
-
-  return bom;
-}
-
-/**
  * Main BOM calculation function
  */
-export function calculateBOM(inputs, prices = null) {
+export function calculateBOM(inputs, Prices) {
   const {
     length,
     width,
@@ -82,30 +59,7 @@ export function calculateBOM(inputs, prices = null) {
 
   if (material === 'FRP') {
     // === FRP TANK CALCULATION ===
-    // Use comprehensive FRP calculator with 772 SKU support
-    const frpResult = calculateComprehensiveFRPTank({
-      length,
-      width,
-      height,
-      partitionCount,
-      buildStandard: inputs.buildStandard || 'MS1390',
-      internalSupport: inputs.internalSupport || false
-    });
-
-    // Enrich FRP BOM with prices from database
-    enrichBOMWithPrices(frpResult, prices);
-
-    // Recalculate total cost after enrichment
-    const allItems = [
-      ...(frpResult.base || []),
-      ...(frpResult.walls || []),
-      ...(frpResult.partition || []),
-      ...(frpResult.roof || []),
-      ...(frpResult.structural || []),
-      ...(frpResult.accessories || [])
-    ];
-    frpResult.summary.totalCost = allItems.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
-
+    const frpResult = calculateFRPTank(lengthPanels, widthPanels, height, perimeter, panelType, supportType, iBeamSize, panelTypeDetail);
     return frpResult;
   }
 
@@ -305,10 +259,6 @@ export function calculateBOM(inputs, prices = null) {
   const allItems = [...bom.base, ...bom.walls, ...bom.partition, ...bom.roof, ...bom.supports, ...bom.accessories];
   bom.summary.totalPanels = [...bom.base, ...bom.walls, ...bom.partition, ...bom.roof]
     .reduce((sum, item) => sum + item.quantity, 0);
-
-  // Enrich all BOM items with prices from database
-  enrichBOMWithPrices(bom, prices);
-
   bom.summary.totalCost = allItems.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
   bom.summary.supportItems = bom.supports.length;
   bom.summary.accessoryItems = bom.accessories.length;
@@ -677,7 +627,7 @@ function getMaterialCode(material) {
 /**
  * FRP Tank calculation
  */
-function calculateFRPTank(lengthPanels, widthPanels, height, perimeter, panelType, supportType, iBeamSize, panelTypeDetail = 'type1', prices = null) {
+function calculateFRPTank(lengthPanels, widthPanels, height, perimeter, panelType, supportType, iBeamSize, panelTypeDetail = 'type1') {
   const heightPanels = Math.ceil(height);
   const typeNumber = '3'; // FRP tanks always use prefix 3
 
@@ -737,10 +687,6 @@ function calculateFRPTank(lengthPanels, widthPanels, height, perimeter, panelTyp
   const allItems = [...bom.base, ...bom.walls, ...bom.roof, ...bom.supports, ...bom.accessories];
   bom.summary.totalPanels = [...bom.base, ...bom.walls, ...bom.roof]
     .reduce((sum, item) => sum + item.quantity, 0);
-
-  // Enrich all BOM items with prices from database
-  enrichBOMWithPrices(bom, prices);
-
   bom.summary.supportItems = bom.supports.length;
   bom.summary.accessoryItems = bom.accessories.length;
   bom.summary.totalCost = allItems.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
