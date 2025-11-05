@@ -7,8 +7,8 @@ import {
   WLI_TYPES,
   LADDER_MATERIALS,
   AIR_VENT_SIZES
-} from '@/lib/accessoryDefaults';
-import { getAccessorySKU, getAccessoryPrice, ACCESSORY_PRICES } from '@/lib/accessoryPricing';
+} from '@/Lib/accessoryDefaults';
+import { getAccessorySKU, getAccessoryPrice, ACCESSORY_PRICES } from '@/Lib/accessoryPricing';
 
 export default function TankAccessories({ values, onChange, tankHeight = 2.0 }) {
   // Check if safety cage should be enabled

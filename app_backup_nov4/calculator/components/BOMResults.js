@@ -83,10 +83,12 @@ export default function BOMResults({ bom, inputs }) {
       {bom.partition && bom.partition.length > 0 && renderSection('PARTITION PANELS', bom.partition, 'bg-purple-50')}
       {renderSection('ROOF PANELS', bom.roof, 'bg-green-50')}
 
+      {bom.structural && bom.structural.length > 0 && renderSection('STRUCTURAL COMPONENTS (FRP)', bom.structural, 'bg-orange-50')}
       {bom.internalSupport && bom.internalSupport.length > 0 && renderSection('INTERNAL SUPPORT (TIE RODS)', bom.internalSupport, 'bg-orange-50')}
       {bom.externalSupport && bom.externalSupport.length > 0 && renderSection('EXTERNAL SUPPORT (I-BEAMS)', bom.externalSupport, 'bg-red-50')}
+      {bom.supports && bom.supports.length > 0 && renderSection('SUPPORT STRUCTURES', bom.supports, 'bg-orange-50')}
 
-      {bom.accessories && bom.accessories.length > 0 && renderSection('ACCESSORIES (BOLTS & NUTS)', bom.accessories, 'bg-teal-50')}
+      {bom.accessories && bom.accessories.length > 0 && renderSection('ACCESSORIES', bom.accessories, 'bg-teal-50')}
 
       <div className="mt-8 bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg p-6 text-white">
         <div className="flex justify-between items-center">
