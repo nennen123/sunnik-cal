@@ -1,7 +1,7 @@
 # 📊 SUNNIK CALCULATOR - PROJECT STATUS TRACKER
-**Last Updated:** November 4, 2025  
-**Current Version:** Oct 30 Restoration  
-**Overall Progress:** ~75% Phase 1-2 Complete
+**Last Updated:** November 5, 2025
+**Current Version:** Nov 5 Price Integration Fixed
+**Overall Progress:** ~85% Phase 1-2 Complete
 
 ---
 
@@ -317,6 +317,27 @@ generatePDF(bom, inputs, {
 ---
 
 ## 📝 DEVELOPMENT LOG
+
+### **Nov 5, 2025 - Price Integration Fixed** 🎉
+✅ **Completed:**
+- Fixed CRITICAL pricing bug: Changed priceLoader.js to use `market_final_price` (customer pricing)
+- Restored price enrichment code in bomCalculator.js (had been removed)
+- Fixed SKU thickness code generation: 3.0mm → "3" (was incorrectly "30")
+- Fixed calculateBOMTotal function (wrong section names and calculation)
+- Renamed Lib/ → lib/ for Next.js convention (case-sensitivity fix)
+- Updated all import statements from @/Lib/ to @/lib/
+- Fixed bolt calculation: Quantity reduced 50%, price corrected from RM 28 → RM 1.05
+- Fixed bolt SKU format: BN-M10-25-S2 → BN300ABNM10025
+
+🎯 **Current Focus:**
+- Testing with reference case (8×8×3m SS316)
+- Validating price display in calculator
+- Verifying total cost accuracy
+
+📊 **Impact:**
+- **CRITICAL FIX:** All quotes now include profit margin (was losing money!)
+- Bolt costs reduced by 98% (RM 234K → RM 4K per typical tank)
+- All 11,578 SKUs now accessible with correct pricing
 
 ### **Oct 30, 2025 - Major Restoration Point**
 ✅ **Completed:**

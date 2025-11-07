@@ -22,6 +22,9 @@ Price Integration Work - Testing SKU matching and fixing price lookup issues
 - [x] Fixed SKU thickness code generation (3.0 → "3" not "30", 4.5 → "45")
 - [x] Added price enrichment for both Steel and FRP tanks
 - [x] Fixed calculateBOMTotal function in page.js (was looking for wrong fields/sections)
+- [x] **BOLT FIX:** Fixed bolt quantity calculation (50% reduction)
+- [x] **BOLT FIX:** Corrected bolt SKU format (BN-M10-25-S2 → BN300ABNM10025)
+- [x] **BOLT FIX:** Price corrected from RM 28.00 → RM 1.05 per set
 
 ---
 
@@ -47,6 +50,18 @@ Price Integration Work - Testing SKU matching and fixing price lookup issues
 **Impact:** Price summary always showed RM 0.00 even though individual items had prices
 **Fix:** Updated to use `quantity × unitPrice` and correct section names (partition, supports, accessories)
 
+### Issue #5: Bolt Calculation Overcount & Wrong Price
+**Problem:** Calculating 8,384 bolts (should be ~4,000) and using wrong SKU format
+**Impact:** Bolt costs showing RM 234,752 instead of ~RM 4,400 (5,300% overcharge!)
+**Root Cause:**
+- Formula didn't account for shared edges between panels
+- SKU format `BN-M10-25-S2` doesn't exist in CSV
+- Correct SKU is `BN300ABNM10025` with price RM 1.05
+**Fix:**
+- New formula: `(totalPanels × 4 × boltsPerSide) ÷ 2 × 1.2`
+- Updated all material SKUs to correct CSV format
+- Result: 50% quantity reduction, 96% price reduction
+
 ---
 
 ## 💡 Notes & Learnings
@@ -69,4 +84,4 @@ Price Integration Work - Testing SKU matching and fixing price lookup issues
 
 ---
 
-**Session Status:** 🟢 Active
+**Session Status:** 🟡 Wrapping Up - Ready for Testing
