@@ -9,6 +9,27 @@
 
 ## 🎯 MANDATORY - Read These Files First
 
+## 🔴 CRITICAL: Git Workflow
+
+**READ THIS:** [GIT_WORKFLOW.md](./GIT_WORKFLOW.md)
+
+**THE #1 RULE:** Commit and push after EVERY work session!
+
+Without git commits:
+- ❌ New chats can't see your files
+- ❌ Project Knowledge can't search them
+- ❌ Memory system doesn't work
+- ❌ You lose all progress
+
+**Quick commit reminder:**
+```bash
+git add .
+git commit -m "Type: Brief description"
+git push
+```
+
+**If you only remember ONE thing:** Always commit and push before ending session!
+
 Every time you start a new chat with Claude, make Claude read these files IN ORDER:
 
 1. **THIS FILE** (`START_HERE.md`) - Overview and instructions
