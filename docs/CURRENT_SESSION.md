@@ -1,87 +1,90 @@
 # 🎯 CURRENT WORK SESSION
 
-**Date:** November 05, 2025
-**Started:** 02:47 PM
+**Date:** November 11, 2025
+**Started:** [Session start time]
 
 ---
 
 ## 📝 Today's Focus
 
-Price Integration Work - Testing SKU matching and fixing price lookup issues
+Documentation Phase - Creating comprehensive business logic documentation to prevent code rebuilds
 
 ---
 
 ## ✅ Tasks Completed This Session
 
-- [x] Started dev server on localhost:3001
-- [x] Reviewed priceLoader.js and found it was using wrong price column
-- [x] Reviewed bomCalculator.js and discovered price enrichment code was removed
-- [x] **CRITICAL FIX:** Changed priceLoader.js to use `market_final_price` instead of `our_final_price`
-- [x] Restored `enrichBOMWithPrices()` function to bomCalculator.js
-- [x] Updated `calculateBOM()` to accept prices parameter
-- [x] Fixed SKU thickness code generation (3.0 → "3" not "30", 4.5 → "45")
-- [x] Added price enrichment for both Steel and FRP tanks
-- [x] Fixed calculateBOMTotal function in page.js (was looking for wrong fields/sections)
-- [x] **BOLT FIX:** Fixed bolt quantity calculation (50% reduction)
-- [x] **BOLT FIX:** Corrected bolt SKU format (BN-M10-25-S2 → BN300ABNM10025)
-- [x] **BOLT FIX:** Price corrected from RM 28.00 → RM 1.05 per set
+- [x] Created comprehensive FRP vs Steel comparison documentation (FRP_vs_STEEL_COMPLETE_3.md)
+  - Material properties comparison (tensile strength, corrosion resistance, weight)
+  - Structural differences (internal vs external supports)
+  - Bolt calculation differences (13 vs 16/20 bolts per side)
+  - Build standards (MS1390/SANS for FRP, SONS/BSI/LPCB for Steel)
+  - Installation and maintenance guidelines
+- [x] Created complete accessories documentation (ACCESSORIES_COMPLETE.md)
+  - Material-specific ladder systems (FRP internal vs SS316 external)
+  - Support structure differences (internal only for FRP)
+  - WLI specifications (HDG preferred for FRP, SS316 for Steel)
+  - Bracket types (ABS for FRP roof, SS304/SS316 for Steel)
+  - Hardware variations by material type
+- [x] Enhanced git workflow documentation
+- [x] Committed both documentation files to repository
+  - FRP_vs_STEEL_COMPLETE_3.md: 1,776 insertions
+  - ACCESSORIES_COMPLETE.md: 815 insertions
 
 ---
 
 ## 🐛 Issues Encountered
 
-### Issue #1: Wrong Price Column (CRITICAL)
-**Problem:** priceLoader.js was using `our_final_price` (internal cost) instead of `market_final_price` (customer price)
-**Impact:** Every quote was losing profit margin!
-**Fix:** Line 57 in priceLoader.js changed to use `market_final_price`
-
-### Issue #2: Price Enrichment Removed
-**Problem:** Someone removed the `enrichBOMWithPrices()` function and price lookup code from bomCalculator.js
-**Impact:** All BOM items had unitPrice = 0, no prices showing
-**Fix:** Restored the function and price lookup logic
-
-### Issue #3: SKU Thickness Code Bug
-**Problem:** generateSKU was creating wrong codes: 3.0mm → "30" instead of "3"
-**Impact:** SKUs didn't match CSV format, price lookups failed
-**Fix:** Updated thickness formatting logic to handle whole numbers correctly
-
-### Issue #4: Price Summary Showing RM 0.00
-**Problem:** calculateBOMTotal() was looking for `item.subtotal` (doesn't exist) and wrong section names
-**Impact:** Price summary always showed RM 0.00 even though individual items had prices
-**Fix:** Updated to use `quantity × unitPrice` and correct section names (partition, supports, accessories)
-
-### Issue #5: Bolt Calculation Overcount & Wrong Price
-**Problem:** Calculating 8,384 bolts (should be ~4,000) and using wrong SKU format
-**Impact:** Bolt costs showing RM 234,752 instead of ~RM 4,400 (5,300% overcharge!)
-**Root Cause:**
-- Formula didn't account for shared edges between panels
-- SKU format `BN-M10-25-S2` doesn't exist in CSV
-- Correct SKU is `BN300ABNM10025` with price RM 1.05
-**Fix:**
-- New formula: `(totalPanels × 4 × boltsPerSide) ÷ 2 × 1.2`
-- Updated all material SKUs to correct CSV format
-- Result: 50% quantity reduction, 96% price reduction
+### No Critical Issues This Session
+- Documentation work proceeded smoothly
+- Successfully created comprehensive technical documentation
+- Git commits completed without errors
 
 ---
 
 ## 💡 Notes & Learnings
 
-- CSV SKU format: `{type}{location}{thickness}-{size}-{material}` (e.g., `1A3-m-S2`)
-- Thickness codes: whole numbers drop decimal (3.0→"3", 5.0→"5"), decimals remove dot (4.5→"45", 2.5→"25")
-- Always use `market_final_price` for customer quotes (includes profit margin)
-- Git diff showed price enrichment was removed in recent commits - need to be careful about regressions
-- The getPrice() function has fallback logic for case-insensitive and partial matching
+### Key Documentation Insights:
+- **FRP vs Steel differences are substantial** - Not just material swap, requires different calculation logic:
+  - FRP uses 13 bolts per side, Steel uses 16 (metric) or 20 (imperial)
+  - FRP only supports internal structure, Steel can use external I-beams
+  - Different build standards apply (MS1390/SANS for FRP, SONS/BSI/LPCB for Steel)
+
+- **Accessory variations by material are critical** for accurate quotes:
+  - FRP tanks use FRP internal ladders, Steel tanks use SS316 external ladders
+  - WLI material preferences differ (HDG for FRP, SS316 for Steel)
+  - Roof brackets must be ABS for FRP, metal for Steel
+
+- **Documentation-first approach is working**:
+  - Having comprehensive docs prevents code rebuild cycles
+  - Clear requirements reduce implementation errors
+  - Testing criteria can be defined before coding
 
 ---
 
 ## 🔄 Next Steps
 
-1. **Test the fixes** - Navigate to http://localhost:3001/calculator and run a test calculation
-2. **Verify prices display** - Check that BOM items show actual prices (not 0)
-3. **Test 5×5×3m SS316** - Run the reference test case
-4. **Check console logs** - Verify SKU generation and price lookup messages
-5. **Test with real quote data** - Try TNKFIM11290 or other known quotes
+### Remaining Documentation Tasks:
+1. **Document build standards** - Create comprehensive guide for SONS, BSI, LPCB, MS1390, SANS
+   - Panel thickness variations by standard
+   - Material compatibility with each standard
+   - Certification requirements
+
+2. **Document panel thickness selection rules** - Formalize the selection logic
+   - Height-based thickness determination
+   - Tier-specific thickness rules
+   - Metric vs Imperial differences
+
+3. **Create validation test suite** - 6 real quote test cases
+   - Define expected results for each test
+   - Include all material types
+   - Cover metric and imperial panels
+   - Test partition scenarios
+
+### After Documentation:
+4. **Implement material-specific logic in code** - Use docs to guide implementation
+5. **Fix bolt calculation** - Apply documented rules (13 vs 16/20 bolts)
+6. **Test against validation suite** - Verify accuracy
 
 ---
 
-**Session Status:** 🟡 Wrapping Up - Ready for Testing
+**Session Status:** 🟢 Documentation Phase - 40% Complete (2 of 5 major docs done)
