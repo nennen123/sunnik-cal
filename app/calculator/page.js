@@ -1,252 +1,272 @@
 'use client';
+
+// app/calculator/page.js
+// Updated to use Supabase instead of CSV for pricing
+
 import { useState, useEffect } from 'react';
 import { calculateBOM } from '../../lib/bomCalculator';
-import { loadPrices, getPriceValue } from '../../lib/priceLoader';
-import { MS1390_DEFAULTS } from '../../lib/accessoryDefaults';
-
-// Core components
+import { loadPrices, getPrice, getCacheStatus } from '../lib/supabasePriceLoader';
 import TankInputs from './components/TankInputs';
 import BOMResults from './components/BOMResults';
-
-// Accessory components
-import TankReinforcement from './components/TankReinforcement';
-import TankAccessories from './components/TankAccessories';
-import SkidBase from './components/SkidBase';
-import BoltNutWasher from './components/BoltNutWasher';
-import PipeFittingsCards from './components/PipeFittingsCards';
-import Remarks from './components/Remarks';
-import PriceSummary from './components/PriceSummary';
-
-// Helper to calculate BOM total from all sections
-function calculateBOMTotal(bom) {
-  if (!bom) return 0;
-
-  let total = 0;
-  // Match actual BOM structure: partition (singular), supports, accessories
-  const sections = ['base', 'walls', 'partition', 'roof', 'supports', 'accessories'];
-
-  sections.forEach(sectionName => {
-    const section = bom[sectionName];
-    if (Array.isArray(section)) {
-      section.forEach(item => {
-        // Calculate from quantity * unitPrice (not subtotal)
-        const itemTotal = (item.quantity || 0) * (item.unitPrice || 0);
-        total += itemTotal;
-      });
-    }
-  });
-
-  return total;
-}
+import QuoteSummary from './components/QuoteSummary';
 
 export default function CalculatorPage() {
   const [inputs, setInputs] = useState({
-    length: 2,
-    width: 2,
-    height: 2,
+    length: 5,
+    width: 4,
+    height: 3,
     panelType: 'm',
-    panelTypeDetail: 1,
-    material: 'FRP',
-    buildStandard: 'MS1390',
+    material: 'SS316',
     partitionCount: 0,
-    roofThickness: 1.5,
-    freeboard: 0.1,
-    internalSupport: false,
-    externalSupport: false,
+    roofThickness: 1.5
   });
 
-  const [accessories, setAccessories] = useState(MS1390_DEFAULTS);
   const [bom, setBOM] = useState(null);
   const [showResults, setShowResults] = useState(false);
   const [prices, setPrices] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Load prices from Supabase on component mount
   useEffect(() => {
-    async function loadData() {
+    async function initPrices() {
+      setLoading(true);
+      setError(null);
+
       try {
-        console.log('📂 Loading prices...');
+        console.log('🔄 Initializing price data from Supabase...');
         const priceData = await loadPrices();
-        console.log('✅ Prices loaded successfully');
+
+        if (!priceData || Object.keys(priceData).length === 0) {
+          throw new Error('No price data loaded from database');
+        }
+
         setPrices(priceData);
-        setLoading(false);
-      } catch (error) {
-        console.error('❌ Error loading prices:', error);
-        setError('Failed to load prices: ' + error.message);
+        console.log(`✅ Successfully loaded ${Object.keys(priceData).length} prices`);
+
+      } catch (err) {
+        console.error('❌ Failed to load prices:', err);
+        setError(err.message || 'Failed to load pricing database');
+      } finally {
         setLoading(false);
       }
     }
-    loadData();
+
+    initPrices();
   }, []);
 
   const handleCalculate = () => {
+    if (!prices || Object.keys(prices).length === 0) {
+      alert('⚠️ Price database not loaded. Please refresh the page.');
+      return;
+    }
+
     try {
-      if (!prices) {
-        alert('Prices not loaded yet. Please wait...');
-        return;
+      console.log('🔧 Calculating BOM with inputs:', inputs);
+
+      // Calculate BOM structure
+      const result = calculateBOM(inputs);
+
+      // Apply prices from Supabase to all BOM items
+      const applyPrices = (items) => {
+        return items.map(item => {
+          const price = getPrice(prices, item.sku);
+          return {
+            ...item,
+            unitPrice: price,
+            totalPrice: price * item.quantity
+          };
+        });
+      };
+
+      // Apply prices to all sections
+      result.base = applyPrices(result.base);
+      result.walls = applyPrices(result.walls);
+      result.partition = applyPrices(result.partition);
+      result.roof = applyPrices(result.roof);
+
+      // Recalculate totals with real prices
+      const allItems = [
+        ...result.base,
+        ...result.walls,
+        ...result.partition,
+        ...result.roof
+      ];
+
+      result.summary.totalPanels = allItems.reduce((sum, item) => sum + item.quantity, 0);
+      result.summary.totalCost = allItems.reduce((sum, item) => sum + (item.totalPrice || 0), 0);
+
+      // Log calculation details
+      console.log('📊 BOM Summary:', {
+        totalPanels: result.summary.totalPanels,
+        totalCost: result.summary.totalCost.toFixed(2),
+        basePanels: result.base.length,
+        wallPanels: result.walls.length,
+        partitionPanels: result.partition.length,
+        roofPanels: result.roof.length
+      });
+
+      // Check for placeholder prices (debugging)
+      const placeholderItems = allItems.filter(item => item.unitPrice === 150 || item.unitPrice === 375);
+      if (placeholderItems.length > 0) {
+        console.warn(`⚠️  ${placeholderItems.length} items using placeholder prices:`,
+          placeholderItems.map(i => i.sku)
+        );
       }
-      const result = calculateBOM(inputs, prices);
-      console.log('✅ BOM calculated:', result);
-      console.log('💰 BOM total:', calculateBOMTotal(result));
+
       setBOM(result);
       setShowResults(true);
-      setTimeout(() => {
-        document.getElementById('results-section')?.scrollIntoView({
-          behavior: 'smooth',
-          block: 'start'
-        });
-      }, 100);
-    } catch (error) {
-      console.error('❌ Error calculating BOM:', error);
-      alert('Error: ' + error.message);
+
+    } catch (err) {
+      console.error('❌ Calculation error:', err);
+      alert(`Calculation failed: ${err.message}`);
     }
-  };
-
-  const handleAccessoryChange = (newAccessories) => {
-    setAccessories(newAccessories);
-  };
-
-  const handlePipeFittingsChange = (newFittings) => {
-    setAccessories({ ...accessories, pipeFittings: newFittings });
-  };
-
-  const handleRemarksChange = (newRemarks) => {
-    setAccessories({ ...accessories, remarks: newRemarks });
-  };
-
-  const handleBNWChange = (newBNW) => {
-    setAccessories({ ...accessories, ...newBNW });
-  };
-
-  const handleSkidBaseChange = (newSkidBase) => {
-    setAccessories({ ...accessories, ...newSkidBase });
   };
 
   const handleReset = () => {
-    if (confirm('Reset all fields?')) {
-      setInputs({
-        length: 2,
-        width: 2,
-        height: 2,
-        panelType: 'm',
-        panelTypeDetail: 1,
-        material: 'FRP',
-        buildStandard: 'MS1390',
-        partitionCount: 0,
-        roofThickness: 1.5,
-        freeboard: 0.1,
-        internalSupport: false,
-        externalSupport: false,
-      });
-      setAccessories(MS1390_DEFAULTS);
-      setBOM(null);
-      setShowResults(false);
-    }
+    setInputs({
+      length: 5,
+      width: 4,
+      height: 3,
+      panelType: 'm',
+      material: 'SS316',
+      partitionCount: 0,
+      roofThickness: 1.5
+    });
+    setBOM(null);
+    setShowResults(false);
   };
 
-  const handleGeneratePDF = () => {
-    alert('PDF generation coming soon!');
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-purple-600 mx-auto mb-4"></div>
-          <p className="text-gray-700 text-lg font-semibold">Loading Calculator...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="bg-red-50 border-2 border-red-500 rounded-lg p-6 max-w-2xl">
-          <h2 className="text-red-800 text-xl font-bold mb-2">Error Loading Calculator</h2>
-          <p className="text-red-700">{error}</p>
-          <button onClick={() => window.location.reload()} className="mt-4 px-4 py-2 bg-red-600 text-white rounded">
-            Reload Page
-          </button>
-        </div>
-      </div>
-    );
-  }
+  // Get cache status for display
+  const cacheStatus = getCacheStatus();
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
-      <div className="max-w-7xl mx-auto">
-
-        {/* Header */}
-        <div className="bg-white rounded-2xl shadow-lg p-8 mb-8 border-2 border-gray-200">
-          <div className="flex items-center gap-4 mb-3">
-            <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center text-white font-bold text-2xl shadow-lg">
-              S
-            </div>
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-white shadow-sm border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 py-6">
+          <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+              <h1 className="text-3xl font-bold text-gray-900">
                 Sunnik Tank Calculator
               </h1>
-              <p className="text-gray-600 mt-1">Your trusted partner in water storage solutions</p>
+              <p className="text-sm text-gray-500 mt-1">
+                Professional BOM & Quotation System
+              </p>
+            </div>
+
+            <div className="text-right">
+              {loading && (
+                <p className="text-sm text-yellow-600">
+                  ⏳ Loading price database...
+                </p>
+              )}
+              {error && (
+                <p className="text-sm text-red-600">
+                  ❌ Error: {error}
+                </p>
+              )}
+              {prices && !loading && !error && (
+                <div className="text-sm">
+                  <p className="text-green-600 font-medium">
+                    ✓ {Object.keys(prices).length.toLocaleString()} SKUs loaded from Supabase
+                  </p>
+                  {cacheStatus.cached && (
+                    <p className="text-gray-500 text-xs mt-1">
+                      Cache: {(cacheStatus.age / 1000).toFixed(0)}s old,
+                      expires in {(cacheStatus.expires / 1000).toFixed(0)}s
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Tank Inputs */}
-        <TankInputs inputs={inputs} setInputs={setInputs} />
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
-        {/* Configuration Header */}
-        <div className="bg-gradient-to-r from-purple-600 to-purple-800 rounded-2xl shadow-xl p-6 text-white mt-8">
-          <h2 className="text-3xl font-bold mb-2">🎨 Configure Tank Accessories</h2>
-          <p className="text-purple-100">Complete all specifications before calculating</p>
-        </div>
+          {/* Left Panel - Inputs */}
+          <div className="lg:col-span-1">
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h2 className="text-xl font-semibold mb-6 text-gray-800">
+                Tank Configuration
+              </h2>
 
-        {/* Accessories Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-          <div className="space-y-6">
-            <TankReinforcement values={accessories} onChange={handleAccessoryChange} tankHeight={inputs.height} />
-            <SkidBase values={accessories} onChange={handleSkidBaseChange} />
-            <Remarks value={accessories.remarks || ''} onChange={handleRemarksChange} />
-          </div>
-          <div className="space-y-6">
-            <TankAccessories values={accessories} onChange={handleAccessoryChange} tankHeight={inputs.height} />
-            <BoltNutWasher values={accessories} onChange={handleBNWChange} />
-          </div>
-        </div>
+              <TankInputs
+                inputs={inputs}
+                setInputs={setInputs}
+              />
 
-        {/* Pipe Fittings */}
-        <div className="mt-6">
-          <PipeFittingsCards fittings={accessories.pipeFittings || []} onChange={handlePipeFittingsChange} />
-        </div>
+              <div className="mt-6 space-y-3">
+                <button
+                  onClick={handleCalculate}
+                  disabled={loading || error}
+                  className={`w-full font-semibold py-3 px-6 rounded-lg transition-colors ${
+                    loading || error
+                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      : 'bg-blue-600 hover:bg-blue-700 text-white'
+                  }`}
+                >
+                  {loading ? 'Loading...' : 'Calculate BOM'}
+                </button>
 
-        {/* Calculate Button */}
-        <div className="flex justify-center my-8">
-          <button onClick={handleCalculate} className="px-16 py-6 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-2xl font-bold text-2xl hover:from-green-600 hover:to-green-700 transition-all duration-200 transform hover:-translate-y-1 hover:shadow-2xl focus:outline-none focus:ring-4 focus:ring-green-300 flex items-center gap-4">
-            <span className="text-3xl">🧮</span>
-            Calculate Complete BOM
-          </button>
-        </div>
+                <button
+                  onClick={handleReset}
+                  className="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3 px-6 rounded-lg transition-colors"
+                >
+                  Reset
+                </button>
+              </div>
 
-        {/* Results */}
-        {showResults && bom && (
-          <div id="results-section" className="space-y-6 mt-8">
-            <div className="bg-green-50 border-2 border-green-500 rounded-xl p-6">
-              <div className="flex items-center gap-3">
-                <span className="text-4xl">✅</span>
-                <div>
-                  <h3 className="text-2xl font-bold text-green-800">BOM Calculated!</h3>
-                  <p className="text-green-700 mt-1">Review your complete bill of materials</p>
+              {/* Database Status */}
+              <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <h3 className="text-sm font-semibold text-blue-900 mb-2">
+                  Database Status
+                </h3>
+                <div className="text-xs text-blue-700 space-y-1">
+                  <p>• Source: Supabase (live database)</p>
+                  <p>• Pricing: market_final_price (customer quotes)</p>
+                  <p>• Cache: Auto-refresh every 5 minutes</p>
                 </div>
               </div>
             </div>
-
-            <PriceSummary baseTankPrice={calculateBOMTotal(bom)} accessories={accessories} onGeneratePDF={handleGeneratePDF} onReset={handleReset} />
-
-            <div className="my-8 border-t-2 border-gray-300"></div>
-
-            <BOMResults bom={bom} inputs={inputs} />
           </div>
-        )}
+
+          {/* Right Panel - Results */}
+          <div className="lg:col-span-2">
+            {showResults && bom ? (
+              <div className="space-y-6">
+                {/* Summary */}
+                <QuoteSummary bom={bom} inputs={inputs} />
+
+                {/* BOM Table */}
+                <BOMResults bom={bom} inputs={inputs} />
+              </div>
+            ) : (
+              <div className="bg-white rounded-lg shadow-md p-12 text-center">
+                <div className="text-gray-400">
+                  <svg className="mx-auto h-24 w-24 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <h3 className="text-xl font-medium text-gray-600 mb-2">
+                    No BOM Generated Yet
+                  </h3>
+                  <p className="text-gray-500">
+                    {loading
+                      ? 'Loading price database...'
+                      : error
+                      ? 'Please fix the database error and refresh'
+                      : 'Enter tank dimensions and click "Calculate BOM" to generate the bill of materials'
+                    }
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
