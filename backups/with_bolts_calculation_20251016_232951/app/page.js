@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { generateBOM } from '@/lib/bomEngine';
+import { generateBOM } from '@/app/lib/bomEngine';
 
 export default function TankCalculator() {
   const [tankSpecs, setTankSpecs] = useState({

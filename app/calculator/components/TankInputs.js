@@ -5,20 +5,28 @@ export default function TankInputs({ inputs, setInputs }) {
     setInputs(prev => ({ ...prev, [field]: value }));
   };
 
-  // Handle material change with FRP logic
-  const handleMaterialChange = (material) => {
-    if (material === 'FRP') {
-      // FRP is always Metric Type 2
-      setInputs(prev => ({
-        ...prev,
-        material: 'FRP',
-        panelType: 'm',
-        panelTypeDetail: 2
-      }));
-    } else {
-      setInputs(prev => ({ ...prev, material }));
-    }
-  };
+// Handle material change with FRP logic
+const handleMaterialChange = (material) => {
+  if (material === 'FRP') {
+    // FRP is always Metric Type 2, with FRP-specific build standard
+    setInputs(prev => ({
+      ...prev,
+      material: 'FRP',
+      panelType: 'm',
+      panelTypeDetail: 2,
+      buildStandard: 'MS1390'  // <-- ADD THIS LINE
+    }));
+  } else {
+    // Switch to steel build standard if coming from FRP
+    setInputs(prev => ({
+      ...prev,
+      material,
+      buildStandard: prev.buildStandard === 'MS1390' || prev.buildStandard === 'SS245'
+        ? 'SANS'  // Reset to SANS if was FRP standard
+        : prev.buildStandard
+    }));
+  }
+};
 
   // Check if FRP is selected (disable panel type controls)
   const isFRP = inputs.material === 'FRP';
@@ -54,18 +62,35 @@ export default function TankInputs({ inputs, setInputs }) {
           Build Standard
         </label>
         <select
-          value={inputs.buildStandard || 'SANS'}
+          value={inputs.buildStandard || (isFRP ? 'MS1390' : 'SANS')}
           onChange={(e) => handleChange('buildStandard', e.target.value)}
           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         >
-          <option value="SANS">SANS 10329:2020 (South African)</option>
-          <option value="BSI">BSI (British Standard)</option>
-          <option value="LPCB">LPCB (Loss Prevention Certification Board)</option>
+          {isFRP ? (
+            <>
+              <option value="MS1390">MS1390:2010 (Malaysian - SPAN Approved)</option>
+              <option value="SS245">SS245:2014 (Singapore Standard)</option>
+            </>
+          ) : (
+            <>
+              <option value="SANS">SANS 10329:2020 (South African)</option>
+              <option value="BSI">BSI (British Standard)</option>
+              <option value="LPCB">LPCB (Loss Prevention Certification Board)</option>
+            </>
+          )}
         </select>
         <p className="text-xs text-gray-500 mt-1">
-          {inputs.buildStandard === 'SANS' && 'Standard thickness progression based on height'}
-          {inputs.buildStandard === 'BSI' && 'British Standard: 5mm for 1-3 panels, 6mm base for 4+ panels'}
-          {inputs.buildStandard === 'LPCB' && 'LPCB Standard: 5mm for 1-3 panels, 6mm base for 4+ panels'}
+          {isFRP ? (
+            inputs.buildStandard === 'MS1390'
+              ? 'Malaysian Standard - 35% fiberglass minimum, SPAN approved'
+              : 'Singapore Standard for FRP tanks'
+          ) : (
+            <>
+              {inputs.buildStandard === 'SANS' && 'Standard thickness progression based on height'}
+              {inputs.buildStandard === 'BSI' && 'British Standard: 5mm for 1-3 panels, 6mm base for 4+ panels'}
+              {inputs.buildStandard === 'LPCB' && 'LPCB Standard: 5mm for 1-3 panels, 6mm base for 4+ panels'}
+            </>
+          )}
         </p>
       </div>
 

@@ -11,7 +11,7 @@ import {
   BRACKET_MATERIALS,
   ROOF_MATERIALS,
   getAccessoryDefaults
-} from '@/lib/accessoryDefaults';
+} from '@/app/lib/accessoryDefaults';
 
 export default function TankReinforcement({ values, onChange, tankHeight }) {
   const [showExternalBraceWarning, setShowExternalBraceWarning] = useState(false);

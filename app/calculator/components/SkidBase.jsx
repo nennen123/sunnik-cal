@@ -7,7 +7,7 @@ import {
   MAIN_BEAM_OPTIONS,
   SUB_BEAM_OPTIONS,
   COATING_OPTIONS
-} from '@/lib/accessoryDefaults';
+} from '@/app/lib/accessoryDefaults';
 
 export default function SkidBase({ values, onChange }) {
   // Check if custom length input should be enabled

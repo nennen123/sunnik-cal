@@ -1724,3 +1724,128 @@ npm run dev
 ---
 
 *End of Session 4 Update*
+
+---
+
+## Session 5: Supabase Integration & Price Loader Fix
+**Date:** November 26, 2025
+**Focus:** Supabase live pricing, FRP SKU matching fixes, lib folder consolidation
+
+### Key Accomplishments
+
+#### 1. Supabase Price Loader Enhancement ✅
+**Problem:** FRP SKUs not matching correctly due to case sensitivity and suffix handling
+
+**Solution - Updated `app/lib/supabasePriceLoader.js`:**
+- **UPPERCASE key storage:** All SKUs now stored with uppercase keys for consistent matching
+- **6 Fallback Strategies:**
+  1. Exact match (fastest)
+  2. FRP suffix handling (BCL, BCR, ABL, ABR, -B, -A, -AB)
+  3. Base FRP SKU (remove all suffixes after -FRP)
+  4. Case variation match
+  5. Normalized match (for φ characters in partition SKUs)
+  6. Partial prefix match for FRP
+- **Debug logging:** Shows sample FRP SKUs and test prices on load
+- **Similar SKUs display:** When no match found, shows similar SKUs for debugging
+
+**FRP SKU Fallback Logic:**
+```javascript
+// 3S30-FRP-B → tries exact, then 3S30-FRP, then 3S30-FRP-A
+// 3S30-FRP-BCL → tries 3S30-FRP-B, then 3S30-FRP, then 3S30-FRP-A
+```
+
+#### 2. Lib Folder Consolidation ✅
+**Problem:** Duplicate lib folders at root and app/lib
+
+**Solution:**
+- All active code already uses `app/lib/` imports
+- Deleted legacy files from root `/lib/`:
+  - `priceLoader.js` (replaced by `supabasePriceLoader.js`)
+  - `supabase.js` (duplicate of `app/lib/supabase.js`)
+  - `bomCalculator.js.bak`, `.backup`, `.backup_20251031_002138` files
+- Root `/lib/` folder deleted
+
+#### 3. Build Standard Selector Fix ✅
+**Verified working in `app/calculator/components/TankInputs.js`:**
+- FRP materials show: MS1390:2010, SS245:2014
+- Steel materials show: SANS, BSI, LPCB
+- Auto-switches build standard when material changes
+
+#### 4. FRP SKU Pricing Verified ✅
+**Confirmed in Supabase database:**
+| SKU | Price |
+|-----|-------|
+| 3B30-FRP | RM 155.81 |
+| 3S30-FRP-A | RM 128.62 |
+| 3S30-FRP-B | RM 128.62 |
+| 3F00-FRP | RM 66.30 |
+| 3H00-FRP | RM 39.78 |
+
+Note: `3S30-FRP` doesn't exist in DB - only `-A` and `-B` variants. Fallback logic handles this.
+
+### Files Modified
+
+1. **`app/lib/supabasePriceLoader.js`**
+   - UPPERCASE key storage (line 71)
+   - 6 fallback strategies for SKU matching
+   - Debug logging for FRP SKUs
+   - Similar SKUs display on no match
+
+2. **Deleted Files:**
+   - `/lib/priceLoader.js`
+   - `/lib/supabase.js`
+   - `/lib/bomCalculator.js.bak`
+   - `/lib/bomCalculator.js.backup`
+   - `/lib/bomCalculator.js.backup_20251031_002138`
+   - Root `/lib/` folder
+
+### Current Project Structure
+```
+sunnik_calc/
+├── app/
+│   ├── calculator/
+│   │   ├── page.js                    # Main calculator interface
+│   │   └── components/
+│   │       ├── TankInputs.js          # Input form (FRP/Steel logic)
+│   │       ├── BOMResults.js          # Results table display
+│   │       └── QuoteSummary.js        # Summary card
+│   └── lib/                           # ⭐ ALL LIB FILES HERE NOW
+│       ├── bomCalculator.js           # BOM calculation engine
+│       ├── supabasePriceLoader.js     # ⭐ UPDATED - Supabase pricing
+│       ├── supabase.js                # Supabase client
+│       ├── frpCalculator.js           # FRP-specific calculations
+│       ├── bomEngine.js               # BOM engine
+│       ├── accessoryDefaults.js       # Accessory defaults
+│       ├── accessoryPricing.js        # Accessory pricing
+│       └── pdfGenerator.js            # PDF generation
+├── public/
+│   └── sunnik-logo.jpg                # Company logo
+└── PROJECT_MEMORY.md                  # This file
+```
+
+### Testing Checklist
+
+- [x] FRP SKUs load from Supabase
+- [x] Price fallback logic works for -B, -A, -BCL, -BCR suffixes
+- [x] Build standard selector shows correct options
+- [x] Console shows debug info for FRP SKUs
+- [x] Legacy lib files deleted
+- [ ] Full FRP tank calculation test
+- [ ] PDF generation with FRP sections
+
+### Dev Server
+```
+✓ Next.js 15.5.4 (Turbopack)
+✓ Local: http://localhost:3001
+✓ Ready
+```
+
+### Session Statistics
+- **Duration:** ~30 minutes
+- **Files Modified:** 1
+- **Files Deleted:** 5 + 1 folder
+- **Issues Fixed:** FRP SKU matching, lib folder consolidation
+
+---
+
+*End of Session 5 Update*

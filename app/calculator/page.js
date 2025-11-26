@@ -4,7 +4,7 @@
 // Updated to use Supabase instead of CSV for pricing
 
 import { useState, useEffect } from 'react';
-import { calculateBOM } from '../../lib/bomCalculator';
+import { calculateBOM } from '../lib/bomCalculator';
 import { loadPrices, getPrice, getCacheStatus } from '../lib/supabasePriceLoader';
 import TankInputs from './components/TankInputs';
 import BOMResults from './components/BOMResults';

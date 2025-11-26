@@ -10,7 +10,7 @@ import {
   PIPE_ITEMS_OUTSIDE,
   PIPE_ITEMS_INSIDE,
   DEFAULT_PIPE_FITTING
-} from '@/Lib/accessoryDefaults';
+} from '@/app/lib/accessoryDefaults';
 
 export default function PipeFittingsCards({ fittings = [], onChange }) {
   const addFitting = () => {

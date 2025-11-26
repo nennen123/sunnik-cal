@@ -62,13 +62,13 @@ export async function loadPrices() {
       return {};
     }
 
-    // Build price lookup object
+    // Build price lookup object with UPPERCASE keys for consistent matching
     const prices = {};
     let validCount = 0;
     let unavailableCount = 0;
 
     data.forEach(product => {
-      const sku = product.sku?.trim();
+      const sku = product.sku?.trim().toUpperCase(); // Store as UPPERCASE
       const price = parseFloat(product.market_final_price);
 
       if (sku && !isNaN(price) && price > 0) {
@@ -87,6 +87,17 @@ export async function loadPrices() {
     console.log(`📦 Sample SKUs:`, Object.keys(prices).slice(0, 5));
     console.log(`⚠️  Skipped ${unavailableCount} invalid entries`);
 
+    // Debug: Show FRP SKUs to verify data loaded correctly
+    const frpSkus = Object.keys(prices).filter(k => k.includes('FRP')).slice(0, 10);
+    console.log(`🔍 Sample FRP SKUs:`, frpSkus);
+
+    // Test specific FRP SKUs
+    const testSkus = ['3B30-FRP', '3S30-FRP', '3S30-FRP-A', '3S30-FRP-B', '3F00-FRP', '3H00-FRP'];
+    testSkus.forEach(sku => {
+      const price = prices[sku];
+      console.log(`   ${sku}: ${price ? `RM ${price.toFixed(2)}` : 'NOT FOUND'}`);
+    });
+
     return prices;
 
   } catch (error) {
@@ -99,6 +110,7 @@ export async function loadPrices() {
 
 /**
  * Get price for a specific SKU with intelligent fallback logic
+ * Uses 6 fallback strategies for maximum match rate
  *
  * @param {Object} prices - Price lookup object from loadPrices()
  * @param {string} sku - SKU to look up
@@ -115,48 +127,110 @@ export function getPrice(prices, sku) {
     return 150.0;
   }
 
+  // Normalize SKU to uppercase for consistent matching
+  const upperSku = sku.toUpperCase();
+
   // Strategy 1: Exact match (fastest, most accurate)
-  if (prices[sku]) {
-    return prices[sku];
+  if (prices[upperSku]) {
+    return prices[upperSku];
   }
 
-  // Strategy 2: Case-insensitive match
-  const lowerSku = sku.toLowerCase();
-  const exactMatch = Object.keys(prices).find(
-    key => key.toLowerCase() === lowerSku
+  // Strategy 2: FRP panel suffix handling
+  // 3S30-FRP-B → try 3S30-FRP, then 3S30-FRP-A
+  // 3S30-FRP-BCL → try 3S30-FRP-B, then 3S30-FRP, then 3S30-FRP-A
+  if (upperSku.includes('-FRP')) {
+    // Remove corner suffixes (BCL, BCR, ABL, ABR) first
+    let baseSku = upperSku.replace(/-BCL$|-BCR$|-ABL$|-ABR$/, '');
+    if (prices[baseSku]) {
+      console.log(`🔍 FRP corner fallback: ${sku} → ${baseSku}`);
+      return prices[baseSku];
+    }
+
+    // Try removing -B suffix and matching -A or base
+    if (baseSku.endsWith('-B')) {
+      const withoutB = baseSku.replace(/-B$/, '');
+      if (prices[withoutB]) {
+        console.log(`🔍 FRP -B to base: ${sku} → ${withoutB}`);
+        return prices[withoutB];
+      }
+      const withA = withoutB + '-A';
+      if (prices[withA]) {
+        console.log(`🔍 FRP -B to -A: ${sku} → ${withA}`);
+        return prices[withA];
+      }
+    }
+
+    // Try removing -A suffix and matching base
+    if (baseSku.endsWith('-A')) {
+      const withoutA = baseSku.replace(/-A$/, '');
+      if (prices[withoutA]) {
+        console.log(`🔍 FRP -A to base: ${sku} → ${withoutA}`);
+        return prices[withoutA];
+      }
+    }
+
+    // Try removing -AB suffix
+    if (baseSku.endsWith('-AB')) {
+      const withoutAB = baseSku.replace(/-AB$/, '');
+      if (prices[withoutAB]) {
+        console.log(`🔍 FRP -AB to base: ${sku} → ${withoutAB}`);
+        return prices[withoutAB];
+      }
+      const withA = withoutAB + '-A';
+      if (prices[withA]) {
+        console.log(`🔍 FRP -AB to -A: ${sku} → ${withA}`);
+        return prices[withA];
+      }
+    }
+  }
+
+  // Strategy 3: Try base FRP SKU (remove all suffixes after -FRP)
+  if (upperSku.includes('-FRP')) {
+    const frpBase = upperSku.split('-FRP')[0] + '-FRP';
+    if (prices[frpBase]) {
+      console.log(`🔍 FRP base match: ${sku} → ${frpBase}`);
+      return prices[frpBase];
+    }
+  }
+
+  // Strategy 4: Case variation match (shouldn't be needed with uppercase storage)
+  const caseMatch = Object.keys(prices).find(
+    key => key.toUpperCase() === upperSku
   );
-
-  if (exactMatch) {
-    console.log(`🔍 Case-insensitive match: ${sku} → ${exactMatch}`);
-    return prices[exactMatch];
+  if (caseMatch) {
+    console.log(`🔍 Case match: ${sku} → ${caseMatch}`);
+    return prices[caseMatch];
   }
 
-  // Strategy 3: Partial match for FRP panels with suffixes
-  // Example: "3S10-FRP-A" might match "3S10-FRP"
-  const partialMatch = Object.keys(prices).find(key => {
-    const baseKey = key.split('-')[0].toLowerCase();
-    const baseSku = lowerSku.split('-')[0];
-    return baseKey === baseSku && key.toLowerCase().includes('frp');
-  });
-
-  if (partialMatch) {
-    console.log(`🔍 Partial FRP match: ${sku} → ${partialMatch}`);
-    return prices[partialMatch];
-  }
-
-  // Strategy 4: Try without special characters for partition panels
+  // Strategy 5: Try without special characters for partition panels
   // Example: "1Bφ45-m-S2" might be stored as "1B45-m-S2"
-  const normalizedSku = sku.replace(/[φΦ]/g, '');
-  if (normalizedSku !== sku && prices[normalizedSku]) {
+  const normalizedSku = upperSku.replace(/[φΦ]/g, '');
+  if (normalizedSku !== upperSku && prices[normalizedSku]) {
     console.log(`🔍 Normalized match: ${sku} → ${normalizedSku}`);
     return prices[normalizedSku];
   }
 
-  // No match found - log for debugging
+  // Strategy 6: Partial prefix match for FRP
+  if (upperSku.includes('FRP')) {
+    const prefix = upperSku.substring(0, 4); // e.g., "3S30"
+    const partialMatch = Object.keys(prices).find(key =>
+      key.startsWith(prefix) && key.includes('FRP')
+    );
+    if (partialMatch) {
+      console.log(`🔍 FRP prefix match: ${sku} → ${partialMatch}`);
+      return prices[partialMatch];
+    }
+  }
+
+  // No match found - log for debugging with similar SKUs
   console.warn(`❌ No price found for SKU: ${sku}`);
-  console.warn(`   Available SKUs starting with '${sku.substring(0, 3)}':`,
-    Object.keys(prices).filter(k => k.startsWith(sku.substring(0, 3))).slice(0, 5)
-  );
+  const prefix = upperSku.substring(0, 3);
+  const similarSkus = Object.keys(prices)
+    .filter(k => k.startsWith(prefix) || (upperSku.includes('FRP') && k.includes('FRP')))
+    .slice(0, 10);
+  if (similarSkus.length > 0) {
+    console.warn(`   Similar SKUs:`, similarSkus);
+  }
 
   return 150.0; // Fallback price
 }

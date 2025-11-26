@@ -1,5 +1,5 @@
 // test-bom.js - Test the BOM calculation engine
-import { calculateTankBOM, generateQuoteNumber } from './lib/bomEngine.js'
+import { calculateTankBOM, generateQuoteNumber } from './app/lib/bomEngine.js'
 
 // Test tank specifications
 const testTank = {
