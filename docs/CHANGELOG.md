@@ -21,6 +21,32 @@
 
 ---
 
+## [2025-11-27] - Session 3: FRP Accessories SKU Fix
+
+**Who:** Nelson + Claude
+**Duration:** ~10 minutes
+**Branch:** main
+
+### What Changed
+
+Fixed FRP tank accessories to use correct database SKU formats:
+
+| Item | Old SKU (Wrong) | New SKU (Correct) |
+|------|-----------------|-------------------|
+| Water Level Indicator | `WLI-HDG` | `WLI-BT-40M` |
+| Internal Ladder | `LADDER-INT-SS316` | `IL-FRP-40M` |
+| External Ladder | `LADDER-EXT-HDG` | `EL-HDG-40M` |
+| Safety Cage | `CAGE-HDG` | `SafetyCage-4m-HDG` |
+
+### Files Modified
+- `app/lib/bomCalculator.js` - Updated `calculateFRPBOM` accessories section
+
+### Expected Pricing (FRP 5×10×4m tank)
+- Internal Ladder: `IL-FRP-40M` @ RM 77 (was RM 150 placeholder)
+- WLI: `WLI-BT-40M` @ RM 1046.93 (was RM 150 placeholder)
+
+---
+
 ## [2025-11-27] - Session 2: Accessories SKU Format + Price Application Fix
 
 **Who:** Nelson + Claude

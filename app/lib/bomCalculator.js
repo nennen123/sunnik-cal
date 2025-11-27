@@ -468,43 +468,54 @@ export function calculateFRPBOM(inputs) {
   }
 
   // ===========================
-  // ACCESSORIES
+  // ACCESSORIES (FRP-SPECIFIC SKU FORMATS)
   // ===========================
 
-  // Water Level Indicator
+  // Helper: Get FRP ladder height code (always metric format)
+  const getFRPLadderHeight = (heightInMeters) => {
+    // Round to nearest 0.5m, then format as 10M, 15M, 20M, etc.
+    const rounded = Math.round(heightInMeters * 2) / 2;
+    return `${Math.round(rounded * 10)}M`;
+  };
+
+  // Water Level Indicator - Ball Type format
   if (wliMaterial && wliMaterial !== 'None') {
+    const wliHeightCode = Math.round(height * 10) + 'M'; // 4m -> 40M
     bom.accessories.push({
-      sku: `WLI-${wliMaterial}`,
-      description: `Water Level Indicator - ${wliMaterial}`,
+      sku: `WLI-BT-${wliHeightCode}`,
+      description: `Water Level Indicator - Ball Type ${height}M`,
       quantity: 1,
       unitPrice: 0
     });
   }
 
-  // Internal Ladder
+  // Internal Ladder - FRP uses IL-FRP-{height}M format
   if (internalLadderQty > 0) {
+    const frpLadderHeight = getFRPLadderHeight(height);
     bom.accessories.push({
-      sku: `LADDER-INT-${internalLadderMaterial}`,
-      description: `Internal Ladder - ${internalLadderMaterial}`,
+      sku: `IL-FRP-${frpLadderHeight}`,
+      description: `Internal Ladder FRP ${frpLadderHeight.replace('M', 'm')}`,
       quantity: internalLadderQty,
       unitPrice: 0
     });
   }
 
-  // External Ladder
+  // External Ladder - FRP tanks typically use HDG external ladders
   if (externalLadderQty > 0) {
+    const extHeightCode = Math.round(height * 10) + 'M'; // 4m -> 40M
     bom.accessories.push({
-      sku: `LADDER-EXT-${externalLadderMaterial}`,
-      description: `External Ladder - ${externalLadderMaterial}`,
+      sku: `EL-HDG-${extHeightCode}`,
+      description: `External Ladder - HDG ${extHeightCode}`,
       quantity: externalLadderQty,
       unitPrice: 0
     });
 
     // Safety cage if external ladder and height > 3m
     if (safetyCage || height > 3) {
+      const cageHeightCode = `${Math.round(height)}m`;
       bom.accessories.push({
-        sku: `CAGE-${externalLadderMaterial}`,
-        description: `Safety Cage - ${externalLadderMaterial}`,
+        sku: `SafetyCage-${cageHeightCode}-HDG`,
+        description: `Safety Cage - HDG ${cageHeightCode}`,
         quantity: externalLadderQty,
         unitPrice: 0
       });
