@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 
 // Simple test without external imports first
 export default function HomePage() {
@@ -227,7 +227,7 @@ export default function HomePage() {
                 {testResults.database ? (
                   <p>✅ <strong>Database connectivity:</strong> Successfully connected to Supabase with pricing data</p>
                 ) : (
-                  <p>⏳ <strong>Database test:</strong> Click "Test Database Connection" to verify Supabase integration</p>
+                  <p>⏳ <strong>Database test:</strong> Click &quot;Test Database Connection&quot; to verify Supabase integration</p>
                 )}
                 <p>🎯 <strong>Ready for:</strong> Building the full calculator interface with material selection</p>
               </div>
