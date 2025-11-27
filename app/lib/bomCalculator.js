@@ -4,6 +4,7 @@
 // - BUG-005: FRP Panel Calculation
 // - BUG-006: Thickness code format (3.0mm → "3", not "30")
 // - BUG-007: 4.5mm doesn't exist, use 5.0mm instead
+// - NEW: Type 2 Panel Support with tier-based diameter (Ø18 bottom, Ø14 upper)
 
 // ============================================
 // BUILD STANDARDS CONFIGURATION
@@ -47,6 +48,24 @@ function getThicknessCode(thickness) {
     // Decimal: 2.5 → "25", 1.5 → "15"
     return String(Math.round(thickness * 10));
   }
+}
+
+// ============================================
+// TYPE 2 DIAMETER HELPER
+// ============================================
+
+/**
+ * Get diameter code based on tier position for Type 2 panels
+ * Based on real Sunnik drawings:
+ * - Tier 1 (bottom): Ø18 (larger holes for 5/8" bolts, high water pressure)
+ * - Tier 2+: Ø14 (smaller holes for M12 bolts, lower pressure)
+ *
+ * @param {number} tierIndex - 0-based tier index (0 = bottom)
+ * @returns {string} '18' or '14'
+ */
+function getDiameterForTier(tierIndex) {
+  // Bottom tier (index 0) uses Ø18, all others use Ø14
+  return tierIndex === 0 ? '18' : '14';
 }
 
 // ============================================
@@ -536,28 +555,64 @@ export function calculateFRPBOM(inputs) {
 }
 
 // ============================================
-// STEEL PANEL CALCULATION
+// STEEL PANEL SKU GENERATION (Type 1 & Type 2)
 // ============================================
 
 /**
  * Generate SKU code for steel panels
- * FIXED: Uses correct thickness code format
+ * Supports both Type 1 and Type 2 formats
+ *
+ * Type 1 Format: 1[Location][Thickness]-[Size]-[Material]
+ *   Example: 1A3-m-S1 (A panel, 3mm, Metric, SS304)
+ *
+ * Type 2 Format (ALL materials): 2[Location][Thickness]-[Size]-[Diameter]-[Material]
+ *   SS316: 2A3-m-18-S2 (A panel, 3mm, Metric, Ø18, SS316)
+ *   SS304: 2A3-m-14-S1 (A panel, 3mm, Metric, Ø14, SS304)
+ *   HDG:   2A45-i-14-HDG (A panel, 4.5mm, Imperial, Ø14, HDG)
+ *   MS:    2A5-m-18-MS (A panel, 5mm, Metric, Ø18, MS)
+ *
+ * FIXED: Uses correct thickness code format (BUG-006)
  * - 3.0mm → "3" (not "30")
  * - 2.5mm → "25"
+ *
+ * @param {string} panelType - '1' or '2' (Type 1 or Type 2)
+ * @param {string} location - 'A', 'B', 'C', 'AB', 'BCL', 'BCR', etc.
+ * @param {number} thickness - 2.5, 3.0, 4.0, 5.0, etc.
+ * @param {string} size - 'm' or 'i' (Metric or Imperial)
+ * @param {string} material - 'S2' (SS316), 'S1' (SS304), 'HDG', 'MS'
+ * @param {string|null} diameter - '14' or '18' (required for Type 2)
+ * @returns {string} Generated SKU
  */
-export function generateSteelSKU(panelType, location, thickness, size, material) {
-  // panelType: '1' or '2' (Type 1 or Type 2)
-  // location: 'A', 'B', 'C', 'AB', 'BCL', 'BCR', etc.
-  // thickness: 2.5, 3.0, 4.0, 5.0, etc.
-  // size: 'm' or 'i'
-  // material: 'S2' (SS316), 'S1' (SS304), 'HDG', 'MS'
-
+export function generateSteelSKU(panelType, location, thickness, size, material, diameter = null) {
   const thicknessCode = getThicknessCode(thickness);
-  return `${panelType}${location}${thicknessCode}-${size}-${material}`;
+
+  // Type 1: Simple format without diameter
+  if (panelType === '1' || panelType === 1) {
+    return `1${location}${thicknessCode}-${size}-${material}`;
+  }
+
+  // Type 2: ALL materials include diameter code
+  // Format: 2[Location][Thickness]-[Size]-[Diameter]-[Material]
+  // Examples from database:
+  //   SS316: 2A3-m-18-S2
+  //   SS304: 2A3-m-14-S1
+  //   HDG:   2A45-i-14-HDG
+  //   MS:    2A5-m-18-MS
+  if (diameter) {
+    return `2${location}${thicknessCode}-${size}-${diameter}-${material}`;
+  }
+
+  // Fallback: If no diameter provided for Type 2, use Ø18 as default
+  return `2${location}${thicknessCode}-${size}-18-${material}`;
 }
+
+// ============================================
+// STEEL PANEL CALCULATION (Type 1 & Type 2)
+// ============================================
 
 /**
  * Calculate Steel tank BOM (SS316, SS304, HDG, MS)
+ * Supports both Type 1 and Type 2 panels
  */
 export function calculateSteelBOM(inputs) {
   const {
@@ -565,7 +620,8 @@ export function calculateSteelBOM(inputs) {
     width,
     height,
     panelType = 'm', // 'm' or 'i'
-    panelTypeDetail = 1, // 1 or 2
+    panelTypeDetail = 1, // 1 or 2 (Type 1 or Type 2)
+    steelType = '1', // Alternative field name for panelTypeDetail
     material = 'SS316', // 'SS316', 'SS304', 'HDG', 'MS'
     partitionCount = 0,
     roofThickness = 1.5,
@@ -581,6 +637,11 @@ export function calculateSteelBOM(inputs) {
     bnwMaterial = 'HDG'
   } = inputs;
 
+  // Determine panel type detail (support both field names)
+  const typeDetail = panelTypeDetail || parseInt(steelType) || 1;
+  const typePrefix = String(typeDetail);
+  const isType2 = typeDetail === 2 || typeDetail === '2';
+
   const panelSize = panelType === 'm' ? 1.0 : 1.22;
 
   // Calculate panel grid
@@ -594,6 +655,7 @@ export function calculateSteelBOM(inputs) {
 
   // Get thickness specification
   const thickness = getThicknessByHeight(height, panelType);
+  const totalTiers = thickness.tiers.length;
 
   const bom = {
     base: [],
@@ -616,34 +678,35 @@ export function calculateSteelBOM(inputs) {
     'MS': 'MS'
   }[material] || 'S2';
 
-  const typePrefix = String(panelTypeDetail);
+  // For Type 2, base panels use Ø18 (bottom = high pressure)
+  const baseDiameter = isType2 ? '18' : null;
 
   // ===========================
   // BASE PANELS
   // ===========================
 
   const baseThickness = thickness.base;
-  const baseSKU = generateSteelSKU(typePrefix, 'B', baseThickness, panelType, materialCode);
+  const baseSKU = generateSteelSKU(typePrefix, 'B', baseThickness, panelType, materialCode, baseDiameter);
 
   // Perimeter base panels
   bom.base.push({
     sku: baseSKU,
-    description: `Base Panel - ${baseThickness}mm`,
+    description: `Base Panel - ${baseThickness}mm${isType2 ? ' [Type 2]' : ''}`,
     quantity: perimeter,
     unitPrice: 0
   });
 
   // Corner panels
   bom.base.push({
-    sku: generateSteelSKU(typePrefix, 'BCL', baseThickness, panelType, materialCode),
-    description: `Base Corner Left - ${baseThickness}mm`,
+    sku: generateSteelSKU(typePrefix, 'BCL', baseThickness, panelType, materialCode, baseDiameter),
+    description: `Base Corner Left - ${baseThickness}mm${isType2 ? ' [Type 2]' : ''}`,
     quantity: 2,
     unitPrice: 0
   });
 
   bom.base.push({
-    sku: generateSteelSKU(typePrefix, 'BCR', baseThickness, panelType, materialCode),
-    description: `Base Corner Right - ${baseThickness}mm`,
+    sku: generateSteelSKU(typePrefix, 'BCR', baseThickness, panelType, materialCode, baseDiameter),
+    description: `Base Corner Right - ${baseThickness}mm${isType2 ? ' [Type 2]' : ''}`,
     quantity: 2,
     unitPrice: 0
   });
@@ -652,8 +715,8 @@ export function calculateSteelBOM(inputs) {
   const interiorBase = Math.max(0, (lengthPanels - 2) * (widthPanels - 2));
   if (interiorBase > 0) {
     bom.base.push({
-      sku: generateSteelSKU(typePrefix, 'A', baseThickness, panelType, materialCode),
-      description: `Interior Base Panel - ${baseThickness}mm`,
+      sku: generateSteelSKU(typePrefix, 'A', baseThickness, panelType, materialCode, baseDiameter),
+      description: `Interior Base Panel - ${baseThickness}mm${isType2 ? ' [Type 2]' : ''}`,
       quantity: interiorBase,
       unitPrice: 0
     });
@@ -663,22 +726,22 @@ export function calculateSteelBOM(inputs) {
   if (partitionCount > 0) {
     const abPerPartition = Math.max(1, partitionSpan - 4);
     bom.base.push({
-      sku: generateSteelSKU(typePrefix, 'AB', baseThickness, panelType, materialCode),
-      description: `Partition Base Support - ${baseThickness}mm`,
+      sku: generateSteelSKU(typePrefix, 'AB', baseThickness, panelType, materialCode, baseDiameter),
+      description: `Partition Base Support - ${baseThickness}mm${isType2 ? ' [Type 2]' : ''}`,
       quantity: abPerPartition * partitionCount,
       unitPrice: 0
     });
 
     bom.base.push({
-      sku: generateSteelSKU(typePrefix, 'BCL', baseThickness, panelType, materialCode),
-      description: `Partition Corner Left - ${baseThickness}mm`,
+      sku: generateSteelSKU(typePrefix, 'BCL', baseThickness, panelType, materialCode, baseDiameter),
+      description: `Partition Corner Left - ${baseThickness}mm${isType2 ? ' [Type 2]' : ''}`,
       quantity: 2 * partitionCount,
       unitPrice: 0
     });
 
     bom.base.push({
-      sku: generateSteelSKU(typePrefix, 'BCR', baseThickness, panelType, materialCode),
-      description: `Partition Corner Right - ${baseThickness}mm`,
+      sku: generateSteelSKU(typePrefix, 'BCR', baseThickness, panelType, materialCode, baseDiameter),
+      description: `Partition Corner Right - ${baseThickness}mm${isType2 ? ' [Type 2]' : ''}`,
       quantity: 2 * partitionCount,
       unitPrice: 0
     });
@@ -692,19 +755,23 @@ export function calculateSteelBOM(inputs) {
     const isBottom = index === 0;
     const isTop = index === thickness.tiers.length - 1;
 
+    // For Type 2, determine diameter based on tier position
+    // Bottom tier (index 0) = Ø18, upper tiers = Ø14
+    const tierDiameter = isType2 ? getDiameterForTier(index) : null;
+
     if (isBottom) {
       // Bottom tier corners
       bom.walls.push({
-        sku: generateSteelSKU(typePrefix, 'B', tier.thickness, panelType, materialCode),
-        description: `Wall Corner Bottom - Tier ${tier.height} - ${tier.thickness}mm`,
+        sku: generateSteelSKU(typePrefix, 'B', tier.thickness, panelType, materialCode, tierDiameter),
+        description: `Wall Corner Bottom - Tier ${tier.height} - ${tier.thickness}mm${isType2 ? ` [Ø${tierDiameter}]` : ''}`,
         quantity: 4,
         unitPrice: 0
       });
 
       // Bottom tier main walls
       bom.walls.push({
-        sku: generateSteelSKU(typePrefix, tier.code, tier.thickness, panelType, materialCode),
-        description: `Wall Panel - Tier ${tier.height} - ${tier.thickness}mm`,
+        sku: generateSteelSKU(typePrefix, tier.code, tier.thickness, panelType, materialCode, tierDiameter),
+        description: `Wall Panel - Tier ${tier.height} - ${tier.thickness}mm${isType2 ? ` [Ø${tierDiameter}]` : ''}`,
         quantity: perimeter - 4,
         unitPrice: 0
       });
@@ -712,16 +779,16 @@ export function calculateSteelBOM(inputs) {
     } else if (isTop) {
       // Top tier corners
       bom.walls.push({
-        sku: generateSteelSKU(typePrefix, tier.code, tier.thickness, panelType, materialCode),
-        description: `Wall Corner Top - Tier ${tier.height} - ${tier.thickness}mm`,
+        sku: generateSteelSKU(typePrefix, tier.code, tier.thickness, panelType, materialCode, tierDiameter),
+        description: `Wall Corner Top - Tier ${tier.height} - ${tier.thickness}mm${isType2 ? ` [Ø${tierDiameter}]` : ''}`,
         quantity: 4,
         unitPrice: 0
       });
 
       // Top tier main walls
       bom.walls.push({
-        sku: generateSteelSKU(typePrefix, 'B', tier.thickness, panelType, materialCode),
-        description: `Wall Panel Top - Tier ${tier.height} - ${tier.thickness}mm`,
+        sku: generateSteelSKU(typePrefix, 'B', tier.thickness, panelType, materialCode, tierDiameter),
+        description: `Wall Panel Top - Tier ${tier.height} - ${tier.thickness}mm${isType2 ? ` [Ø${tierDiameter}]` : ''}`,
         quantity: perimeter - 4,
         unitPrice: 0
       });
@@ -729,8 +796,8 @@ export function calculateSteelBOM(inputs) {
     } else {
       // Middle tiers - all A panels
       bom.walls.push({
-        sku: generateSteelSKU(typePrefix, tier.code, tier.thickness, panelType, materialCode),
-        description: `Wall Panel - Tier ${tier.height} - ${tier.thickness}mm`,
+        sku: generateSteelSKU(typePrefix, tier.code, tier.thickness, panelType, materialCode, tierDiameter),
+        description: `Wall Panel - Tier ${tier.height} - ${tier.thickness}mm${isType2 ? ` [Ø${tierDiameter}]` : ''}`,
         quantity: perimeter,
         unitPrice: 0
       });
@@ -742,12 +809,16 @@ export function calculateSteelBOM(inputs) {
   // ===========================
 
   if (partitionCount > 0) {
+    // NOTE: Partition panels use ¢ (cent) symbol
+    // Partitions use Type 1 format even when tank is Type 2
+    // because Type 2 partition SKUs may not exist in database
+
     thickness.tiers.forEach(tier => {
       const thicknessCode = getThicknessCode(tier.thickness);
 
       // Corner partition panels (C¢)
       bom.partition.push({
-        sku: `${typePrefix}C¢${thicknessCode}-${panelType}-${materialCode}`,
+        sku: `1C¢${thicknessCode}-${panelType}-${materialCode}`,
         description: `Partition Corner - Tier ${tier.height} - ${tier.thickness}mm`,
         quantity: 2 * partitionCount,
         unitPrice: 0
@@ -756,7 +827,7 @@ export function calculateSteelBOM(inputs) {
       // Main partition panels (B¢)
       const mainPartitionPanels = Math.max(1, partitionSpan - 2);
       bom.partition.push({
-        sku: `${typePrefix}B¢${thicknessCode}-${panelType}-${materialCode}`,
+        sku: `1B¢${thicknessCode}-${panelType}-${materialCode}`,
         description: `Partition Wall - Tier ${tier.height} - ${tier.thickness}mm`,
         quantity: mainPartitionPanels * partitionCount,
         unitPrice: 0
@@ -768,11 +839,13 @@ export function calculateSteelBOM(inputs) {
   // ROOF PANELS
   // ===========================
 
+  // Roof panels use Type 1 format regardless of steelType
+  // (Roof panels don't have diameter codes)
   const roofCount = lengthPanels * widthPanels;
   const roofThicknessCode = getThicknessCode(roofThickness);
 
   bom.roof.push({
-    sku: `${typePrefix}R${roofThicknessCode}-${panelType}-${materialCode}`,
+    sku: `1R${roofThicknessCode}-${panelType}-${materialCode}`,
     description: `Roof Panel - ${roofThickness}mm`,
     quantity: Math.max(0, roofCount - 4),
     unitPrice: 0
@@ -780,7 +853,7 @@ export function calculateSteelBOM(inputs) {
 
   // Air vents
   bom.roof.push({
-    sku: `${typePrefix}R(AV)${roofThicknessCode}-${panelType}-${materialCode}`,
+    sku: `1R(AV)${roofThicknessCode}-${panelType}-${materialCode}`,
     description: `Roof Air Vent - ${roofThickness}mm`,
     quantity: 2,
     unitPrice: 0
@@ -788,7 +861,7 @@ export function calculateSteelBOM(inputs) {
 
   // Manholes
   bom.roof.push({
-    sku: `${typePrefix}MH${roofThicknessCode}-${panelType}-${materialCode}`,
+    sku: `1MH${roofThicknessCode}-${panelType}-${materialCode}`,
     description: `Manhole - ${roofThickness}mm`,
     quantity: 2,
     unitPrice: 0
@@ -965,6 +1038,12 @@ export function calculateSteelBOM(inputs) {
   bom.summary.totalPanels = allPanelItems.reduce((sum, item) => sum + item.quantity, 0);
   bom.summary.totalCost = allItems.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
 
+  // Log for debugging
+  console.log(`📦 Steel BOM calculated: Type ${typeDetail}, ${material}, ${panelType === 'm' ? 'Metric' : 'Imperial'}`);
+  if (isType2) {
+    console.log(`   → Using Type 2 SKUs with tier-based diameter (Ø18 bottom, Ø14 upper)`);
+  }
+
   return bom;
 }
 
@@ -986,7 +1065,8 @@ export function calculateBOM(inputs) {
   }
 
   // Steel tanks (SS316, SS304, HDG, MS)
-  console.log(`📦 Calculating ${material} steel tank BOM...`);
+  const typeDetail = inputs.panelTypeDetail || inputs.steelType || 1;
+  console.log(`📦 Calculating ${material} steel tank BOM (Type ${typeDetail})...`);
   return calculateSteelBOM(inputs);
 }
 
