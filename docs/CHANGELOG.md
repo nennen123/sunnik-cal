@@ -21,6 +21,43 @@
 
 ---
 
+## [2025-11-27] - Session 2: Accessories SKU Format + Price Application Fix
+
+**Who:** Nelson + Claude
+**Duration:** ~20 minutes
+**Branch:** main
+
+### What Changed
+
+1. **Accessories SKU Format Update** - Now matches database format:
+   - Water Level Indicator: `WLI-BT-{height}M` (e.g., `WLI-BT-30M`)
+   - Internal Ladder: `IL-{material}-{height}` (e.g., `IL-SS304-12ft`)
+   - External Ladder: `EL-{material}-{height}` (e.g., `EL-HDG-30M`)
+   - Safety Cage: `SafetyCage-{height}-{material}` (e.g., `SafetyCage-12ft-HDG`)
+   - SS316 ladders fall back to SS304 (no SS316 ladders in database)
+
+2. **Price Application Fix** - handleCalculate now includes all sections:
+   - Added `result.supports = applyPrices(result.supports || [])`
+   - Added `result.accessories = applyPrices(result.accessories || [])`
+   - Total cost now includes supports and accessories
+
+### Files Modified
+- `app/lib/bomCalculator.js` - New accessories SKU format with height codes
+- `app/calculator/page.js` - Apply prices to supports and accessories
+
+### Database Update Required
+Run in Supabase SQL Editor:
+```sql
+UPDATE products
+SET is_available = true
+WHERE sku LIKE 'WLI-%'
+   OR sku LIKE 'IL-%'
+   OR sku LIKE 'EL-%'
+   OR sku LIKE 'SafetyCage-%';
+```
+
+---
+
 ## [2025-11-27] - Bug Fixes: Freeboard, Thickness Calculation, Partition SKUs
 
 **Who:** Nelson + Claude

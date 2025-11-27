@@ -83,18 +83,28 @@ export default function CalculatorPage() {
       // Apply prices to all sections
       result.base = applyPrices(result.base);
       result.walls = applyPrices(result.walls);
-      result.partition = applyPrices(result.partition);
+      result.partition = applyPrices(result.partition || []);
       result.roof = applyPrices(result.roof);
 
-      // Recalculate totals with real prices
-      const allItems = [
+      // FIXED: Also apply prices to supports and accessories
+      result.supports = applyPrices(result.supports || []);
+      result.accessories = applyPrices(result.accessories || []);
+
+      // Recalculate totals with real prices - INCLUDING all sections
+      const allPanels = [
         ...result.base,
         ...result.walls,
-        ...result.partition,
+        ...(result.partition || []),
         ...result.roof
       ];
 
-      result.summary.totalPanels = allItems.reduce((sum, item) => sum + item.quantity, 0);
+      const allItems = [
+        ...allPanels,
+        ...(result.supports || []),
+        ...(result.accessories || [])
+      ];
+
+      result.summary.totalPanels = allPanels.reduce((sum, item) => sum + item.quantity, 0);
       result.summary.totalCost = allItems.reduce((sum, item) => sum + (item.totalPrice || 0), 0);
 
       // Log calculation details

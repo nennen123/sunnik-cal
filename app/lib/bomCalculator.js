@@ -835,58 +835,111 @@ export function calculateSteelBOM(inputs) {
   // ACCESSORIES
   // ===========================
 
-  // Water Level Indicator
+  // Helper function to get ladder height code
+  const getLadderHeightCode = (heightMeters, isPanelTypeImperial) => {
+    if (isPanelTypeImperial) {
+      // Convert to feet and round to nearest standard size (4, 6, 8, 10, 12, 14, 16)
+      const heightFeet = Math.round(heightMeters * 3.28084);
+      const standardFeet = [4, 6, 8, 10, 12, 14, 16];
+      const closest = standardFeet.reduce((prev, curr) =>
+        Math.abs(curr - heightFeet) < Math.abs(prev - heightFeet) ? curr : prev
+      );
+      return `${closest}ft`;
+    } else {
+      // Metric: round to nearest 0.5m and format as 10M, 15M, 20M, etc.
+      const rounded = Math.round(heightMeters * 2) / 2;
+      const code = Math.round(rounded * 10);
+      return `${code}M`;
+    }
+  };
+
+  // Helper function to get ladder material code for database
+  const getLadderMaterialCode = (selectedMaterial) => {
+    // Database has: HDG, FRP, SS304 (no SS316 ladders)
+    // If SS316 selected, use SS304 as fallback
+    if (selectedMaterial === 'SS316') return 'SS304';
+    if (selectedMaterial === 'SS304') return 'SS304';
+    if (selectedMaterial === 'FRP') return 'FRP';
+    return 'HDG'; // Default to HDG
+  };
+
+  const ladderHeightCode = getLadderHeightCode(height, panelType === 'i');
+  const isImperial = panelType === 'i';
+
+  // Water Level Indicator - format: WLI-BT-{height}M (Ball Type, height-based)
   if (wliMaterial && wliMaterial !== 'None') {
+    const wliHeightCode = Math.round(height * 10) + 'M'; // 3m -> 30M
     bom.accessories.push({
-      sku: `WLI-${wliMaterial}`,
-      description: `Water Level Indicator - ${wliMaterial}`,
+      sku: `WLI-BT-${wliHeightCode}`,
+      description: `Water Level Indicator - Ball Type ${height}M`,
       quantity: 1,
       unitPrice: 0
     });
   }
 
-  // Internal Ladder
+  // Internal Ladder - format: IL-{material}-{height}M or IL-{material}-{height}ft
   if (internalLadderQty > 0) {
+    const ladderMat = getLadderMaterialCode(internalLadderMaterial);
     bom.accessories.push({
-      sku: `LADDER-INT-${internalLadderMaterial}`,
-      description: `Internal Ladder - ${internalLadderMaterial}`,
+      sku: `IL-${ladderMat}-${ladderHeightCode}`,
+      description: `Internal Ladder - ${ladderMat} ${ladderHeightCode}`,
       quantity: internalLadderQty,
       unitPrice: 0
     });
   }
 
-  // External Ladder
+  // External Ladder - format: EL-{material}-{height}M or EL-{material}-{height}ft
   if (externalLadderQty > 0) {
+    const ladderMat = getLadderMaterialCode(externalLadderMaterial);
     bom.accessories.push({
-      sku: `LADDER-EXT-${externalLadderMaterial}`,
-      description: `External Ladder - ${externalLadderMaterial}`,
+      sku: `EL-${ladderMat}-${ladderHeightCode}`,
+      description: `External Ladder - ${ladderMat} ${ladderHeightCode}`,
       quantity: externalLadderQty,
       unitPrice: 0
     });
 
-    // Safety cage if external ladder and height > 3m or explicitly requested
+    // Safety Cage - format: SafetyCage-{height}m-{material} or SafetyCage-{height}ft-{material}
     if (safetyCage || height > 3) {
+      let cageHeightCode;
+      let cageMaterial = externalLadderMaterial;
+      // Map material names to database format
+      if (cageMaterial === 'SS316') cageMaterial = 'SS316';
+      else if (cageMaterial === 'SS304') cageMaterial = 'SS304';
+      else if (cageMaterial === 'MS') cageMaterial = 'MS';
+      else cageMaterial = 'HDG';
+
+      if (isImperial) {
+        const heightFeet = Math.round(height * 3.28084);
+        const standardFeet = [12, 16, 20];
+        const closest = standardFeet.reduce((prev, curr) =>
+          Math.abs(curr - heightFeet) < Math.abs(prev - heightFeet) ? curr : prev
+        );
+        cageHeightCode = `${closest}ft`;
+      } else {
+        const rounded = Math.round(height * 10);
+        cageHeightCode = `${rounded}m`;
+      }
+
       bom.accessories.push({
-        sku: `CAGE-${externalLadderMaterial}`,
-        description: `Safety Cage - ${externalLadderMaterial}`,
+        sku: `SafetyCage-${cageHeightCode}-${cageMaterial}`,
+        description: `Safety Cage - ${cageMaterial} ${cageHeightCode}`,
         quantity: externalLadderQty,
         unitPrice: 0
       });
     }
   }
 
-  // Bolts, Nuts & Washers
+  // Bolts, Nuts & Washers - kept as informational placeholder
+  // Note: Individual bolts sold separately in database (BN300A0BM16075, etc.)
   if (bnwMaterial) {
-    // Approximate bolt count: 13-20 per panel side depending on material
     const boltsPerSide = material.startsWith('SS') ? 20 : 16;
     const totalPanels = bom.base.reduce((sum, item) => sum + item.quantity, 0) +
                         bom.walls.reduce((sum, item) => sum + item.quantity, 0);
-    const totalBolts = totalPanels * boltsPerSide * 2; // Approximate
-
+    const totalBolts = totalPanels * boltsPerSide * 2;
     bom.accessories.push({
-      sku: `BNW-${bnwMaterial}`,
-      description: `Bolts, Nuts & Washers Set - ${bnwMaterial}`,
-      quantity: Math.ceil(totalBolts / 100), // Sold in sets of 100
+      sku: `BNW-${bnwMaterial}-SET`,
+      description: `Bolts, Nuts & Washers Set - ${bnwMaterial} (${totalBolts} pcs approx)`,
+      quantity: Math.ceil(totalBolts / 100),
       unitPrice: 0
     });
   }
