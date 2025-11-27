@@ -15,6 +15,7 @@ export default function CalculatorPage() {
     length: 5,
     width: 4,
     height: 3,
+    freeboard: 0.2,  // Default 200mm in meters
     panelType: 'm',
     material: 'SS316',
     partitionCount: 0,

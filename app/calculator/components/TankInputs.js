@@ -213,19 +213,20 @@ const handleMaterialChange = (material) => {
         {/* Freeboard */}
         <div>
           <label className="block text-sm text-gray-600 mb-1">
-            Freeboard (air gap in meters)
+            Freeboard (meters)
           </label>
           <input
             type="number"
-            min="0"
+            min="0.2"
             max="1"
-            step="0.01"
-            value={inputs.freeboard || ''}
-            onChange={(e) => handleChange('freeboard', parseFloat(e.target.value) || 0.1)}
+            step="0.1"
+            value={inputs.freeboard || 0.2}
+            onChange={(e) => handleChange('freeboard', Math.max(0.2, parseFloat(e.target.value) || 0.2))}
+            placeholder="0.2"
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
           <p className="text-xs text-gray-500 mt-1">
-            Default: 0.1m (100mm air gap at top)
+            Default: 0.2m (200mm minimum air gap at top)
           </p>
         </div>
       </div>
@@ -527,10 +528,10 @@ const handleMaterialChange = (material) => {
         <div className="pt-2 border-t border-blue-200">
           <div className="text-xs text-blue-600">Effective (after freeboard):</div>
           <div className="text-xl font-bold text-blue-900">
-            {((inputs.length || 0) * (inputs.width || 0) * ((inputs.height || 0) - (inputs.freeboard || 0.1)) * 1000).toLocaleString()} L
+            {((inputs.length || 0) * (inputs.width || 0) * ((inputs.height || 0) - (inputs.freeboard || 0.2)) * 1000).toLocaleString()} L
           </div>
           <div className="text-xs text-blue-600">
-            {((inputs.length || 0) * (inputs.width || 0) * ((inputs.height || 0) - (inputs.freeboard || 0.1))).toFixed(2)} m³
+            {((inputs.length || 0) * (inputs.width || 0) * ((inputs.height || 0) - (inputs.freeboard || 0.2))).toFixed(2)} m³
           </div>
         </div>
       </div>

@@ -21,6 +21,49 @@
 
 ---
 
+## [2025-11-27] - Bug Fixes: Freeboard, Thickness Calculation, Partition SKUs
+
+**Who:** Nelson + Claude
+**Duration:** ~30 minutes
+**Branch:** main
+
+### What Changed
+Fixed three bugs in the calculator:
+
+1. **Freeboard Input Fix** - Users entering "200" thinking mm got -9,800,000L capacity
+   - Changed default from 0.1m to 0.2m (200mm)
+   - Added minimum of 0.2m
+   - Updated label to "Freeboard (meters)"
+   - Fixed QuoteSummary.js which was treating freeboard as mm
+
+2. **Thickness Calculation Fix** - getThicknessByHeight now tier-based
+   - Replaced hardcoded height ranges with dynamic tier calculation
+   - Uses `Math.ceil(height / panelSize)` for tier count
+   - Supports both Metric (1m panels) and Imperial (1.22m panels)
+
+3. **Partition Panel SKU Fix** - Changed φ to ¢
+   - SKUs now use `C¢` and `B¢` instead of `Cφ` and `Bφ`
+   - Matches database SKU format
+
+### Files Modified
+- `app/calculator/page.js` - Added freeboard: 0.2 to default state
+- `app/calculator/components/TankInputs.js` - Updated freeboard input (min 0.2, meters)
+- `app/calculator/components/QuoteSummary.js` - Fixed freeboard treated as meters not mm
+- `app/lib/pdfGenerator.js` - Updated freeboard default to 0.2
+- `app/lib/bomCalculator.js` - Replaced getThicknessByHeight, fixed partition symbols
+- `docs/CURRENT_STATUS.md` - Updated status
+
+### Tests Run
+- ✅ Syntax check passed for all modified files
+- ✅ Dev server starts without errors
+
+### Next Steps
+1. Test calculator with various configurations
+2. Verify pricing lookups
+3. Test PDF generation
+
+---
+
 ## [2025-11-06] - Session 3 - Memory System Creation
 
 **Who:** [Your Name] + Claude

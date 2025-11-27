@@ -34,7 +34,8 @@ export default function QuoteSummary({ bom, inputs }) {
   const nominalCapacity = inputs.length * inputs.width * inputs.height;
   const nominalLiters = nominalCapacity * 1000;
 
-  const freeboardMeters = (inputs.freeboard || 0) / 1000;
+  // Freeboard is already in meters (default 0.2m = 200mm)
+  const freeboardMeters = inputs.freeboard || 0.2;
   const effectiveHeight = inputs.height - freeboardMeters;
   const effectiveCapacity = inputs.length * inputs.width * Math.max(0, effectiveHeight);
   const effectiveLiters = effectiveCapacity * 1000;
@@ -67,7 +68,7 @@ export default function QuoteSummary({ bom, inputs }) {
               {effectiveLiters.toLocaleString()} L
             </div>
             <div className="text-xs text-green-200">
-              {effectiveCapacity.toFixed(2)} m³ (freeboard: {inputs.freeboard || 0}mm)
+              {effectiveCapacity.toFixed(2)} m³ (freeboard: {((inputs.freeboard || 0.2) * 1000).toFixed(0)}mm)
             </div>
           </div>
         </div>
@@ -128,7 +129,7 @@ export default function QuoteSummary({ bom, inputs }) {
             Freeboard
           </div>
           <div className="font-semibold">
-            {inputs.freeboard || 0} mm
+            {((inputs.freeboard || 0.2) * 1000).toFixed(0)} mm
           </div>
         </div>
 

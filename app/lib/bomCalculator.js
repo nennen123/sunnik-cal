@@ -1,7 +1,9 @@
 // app/lib/bomCalculator.js
 // Sunnik Tank BOM Calculation Engine
-// Updated: Fixed BUG-005 - FRP Panel Calculation
-// Added: supports and accessories arrays for QuoteSummary compatibility
+// FIXED:
+// - BUG-005: FRP Panel Calculation
+// - BUG-006: Thickness code format (3.0mm → "3", not "30")
+// - BUG-007: 4.5mm doesn't exist, use 5.0mm instead
 
 // ============================================
 // BUILD STANDARDS CONFIGURATION
@@ -28,99 +30,134 @@ export function getBuildStandards(material) {
 }
 
 // ============================================
+// THICKNESS CODE HELPER
+// ============================================
+
+/**
+ * Convert thickness (mm) to SKU code
+ * Database format:
+ * - Whole numbers: 3.0 → "3", 4.0 → "4", 5.0 → "5", 6.0 → "6"
+ * - Half numbers: 2.5 → "25", 1.5 → "15"
+ */
+function getThicknessCode(thickness) {
+  if (thickness % 1 === 0) {
+    // Whole number: 3.0 → "3"
+    return String(Math.round(thickness));
+  } else {
+    // Decimal: 2.5 → "25", 1.5 → "15"
+    return String(Math.round(thickness * 10));
+  }
+}
+
+// ============================================
 // STEEL PANEL THICKNESS LOGIC
 // ============================================
 
 /**
+ * Available thicknesses in database:
+ * 1.5mm, 2.0mm, 2.5mm, 3.0mm, 4.0mm, 5.0mm, 6.0mm
+ * NOTE: 4.5mm does NOT exist - use 5.0mm instead
+ */
+
+/**
  * Get panel thickness based on SANS 10329:2020 standard for STEEL tanks
- * This does NOT apply to FRP tanks
+ * FIXED: Now calculates tiers based on actual height and panel size
  */
 export function getThicknessByHeight(heightMeters, panelType) {
-  const heightMM = heightMeters * 1000;
+  const panelSize = panelType === 'm' ? 1.0 : 1.22;
+  const numTiers = Math.ceil(heightMeters / panelSize);
+
+  console.log(`📐 Calculating thickness for ${heightMeters}m height, ${numTiers} tiers (${panelType === 'm' ? 'Metric' : 'Imperial'})`);
 
   if (panelType === 'm') {
-    // METRIC PANELS (1m × 1m)
-    if (heightMM >= 1000 && heightMM <= 1020) {
-      return {
-        base: 3.0,
-        wall: 3.0,
-        roof: 1.5,
-        tiers: [{ height: 1, thickness: 3.0, code: 'A' }]
-      };
-    } else if (heightMM >= 2000 && heightMM <= 2040) {
-      return {
-        base: 3.0,
-        wall: 3.0,
-        roof: 1.5,
-        tiers: [
-          { height: 1, thickness: 3.0, code: 'A' },
-          { height: 2, thickness: 3.0, code: 'A' }
-        ]
-      };
-    } else if (heightMM >= 3000 && heightMM <= 3060) {
-      return {
-        base: 4.5,
-        wall: 4.5,
-        roof: 1.5,
-        tiers: [
-          { height: 1, thickness: 4.5, code: 'A' },
-          { height: 2, thickness: 3.0, code: 'A' },
-          { height: 3, thickness: 3.0, code: 'C' }
-        ]
-      };
-    } else if (heightMM >= 4000 && heightMM <= 4080) {
-      return {
-        base: 5.0,
-        wall: 5.0,
-        roof: 1.5,
-        tiers: [
-          { height: 1, thickness: 5.0, code: 'A' },
-          { height: 2, thickness: 4.5, code: 'A' },
-          { height: 3, thickness: 3.0, code: 'A' },
-          { height: 4, thickness: 3.0, code: 'C' }
-        ]
-      };
-    }
-  } else if (panelType === 'i') {
-    // IMPERIAL PANELS (4ft × 4ft = 1.22m × 1.22m)
-    if (heightMM >= 1200 && heightMM <= 1220) {
-      return {
-        base: 2.5,
-        wall: 2.5,
-        roof: 1.5,
-        tiers: [{ height: 1, thickness: 2.5, code: 'A' }]
-      };
-    } else if (heightMM >= 2400 && heightMM <= 2440) {
-      return {
-        base: 3.0,
-        wall: 3.0,
-        roof: 1.5,
-        tiers: [
-          { height: 1, thickness: 3.0, code: 'A' },
-          { height: 2, thickness: 2.5, code: 'A' }
-        ]
-      };
-    } else if (heightMM >= 3600 && heightMM <= 3660) {
-      return {
-        base: 4.0,
-        wall: 4.0,
-        roof: 1.5,
-        tiers: [
-          { height: 1, thickness: 4.0, code: 'A' },
-          { height: 2, thickness: 3.0, code: 'A' },
-          { height: 3, thickness: 2.5, code: 'C' }
-        ]
-      };
-    }
+    return getMetricThickness(numTiers);
+  } else {
+    return getImperialThickness(numTiers);
   }
+}
 
-  // Default fallback
-  return {
-    base: 3.0,
-    wall: 3.0,
-    roof: 1.5,
-    tiers: [{ height: 1, thickness: 3.0, code: 'A' }]
-  };
+function getMetricThickness(numTiers) {
+  switch (numTiers) {
+    case 1:
+      return { base: 3.0, wall: 3.0, roof: 1.5, tiers: [{ height: 1, thickness: 3.0, code: 'A' }] };
+    case 2:
+      return { base: 3.0, wall: 3.0, roof: 1.5, tiers: [
+        { height: 1, thickness: 3.0, code: 'A' },
+        { height: 2, thickness: 3.0, code: 'C' }
+      ]};
+    case 3:
+      return { base: 5.0, wall: 5.0, roof: 1.5, tiers: [
+        { height: 1, thickness: 5.0, code: 'A' },
+        { height: 2, thickness: 3.0, code: 'A' },
+        { height: 3, thickness: 3.0, code: 'C' }
+      ]};
+    case 4:
+      return { base: 5.0, wall: 5.0, roof: 1.5, tiers: [
+        { height: 1, thickness: 5.0, code: 'A' },
+        { height: 2, thickness: 5.0, code: 'A' },
+        { height: 3, thickness: 3.0, code: 'A' },
+        { height: 4, thickness: 3.0, code: 'C' }
+      ]};
+    case 5:
+      return { base: 6.0, wall: 6.0, roof: 1.5, tiers: [
+        { height: 1, thickness: 6.0, code: 'A' },
+        { height: 2, thickness: 5.0, code: 'A' },
+        { height: 3, thickness: 5.0, code: 'A' },
+        { height: 4, thickness: 3.0, code: 'A' },
+        { height: 5, thickness: 3.0, code: 'C' }
+      ]};
+    default:
+      return { base: 6.0, wall: 6.0, roof: 1.5, tiers: [
+        { height: 1, thickness: 6.0, code: 'A' },
+        { height: 2, thickness: 6.0, code: 'A' },
+        { height: 3, thickness: 5.0, code: 'A' },
+        { height: 4, thickness: 5.0, code: 'A' },
+        { height: 5, thickness: 3.0, code: 'A' },
+        { height: 6, thickness: 3.0, code: 'C' }
+      ]};
+  }
+}
+
+function getImperialThickness(numTiers) {
+  switch (numTiers) {
+    case 1:
+      return { base: 2.5, wall: 2.5, roof: 1.5, tiers: [{ height: 1, thickness: 2.5, code: 'A' }] };
+    case 2:
+      return { base: 3.0, wall: 3.0, roof: 1.5, tiers: [
+        { height: 1, thickness: 3.0, code: 'A' },
+        { height: 2, thickness: 2.5, code: 'C' }
+      ]};
+    case 3:
+      return { base: 4.0, wall: 4.0, roof: 1.5, tiers: [
+        { height: 1, thickness: 4.0, code: 'A' },
+        { height: 2, thickness: 3.0, code: 'A' },
+        { height: 3, thickness: 2.5, code: 'C' }
+      ]};
+    case 4:
+      return { base: 5.0, wall: 5.0, roof: 1.5, tiers: [
+        { height: 1, thickness: 5.0, code: 'A' },
+        { height: 2, thickness: 4.0, code: 'A' },
+        { height: 3, thickness: 3.0, code: 'A' },
+        { height: 4, thickness: 2.5, code: 'C' }
+      ]};
+    case 5:
+      return { base: 6.0, wall: 6.0, roof: 1.5, tiers: [
+        { height: 1, thickness: 6.0, code: 'A' },
+        { height: 2, thickness: 5.0, code: 'A' },
+        { height: 3, thickness: 4.0, code: 'A' },
+        { height: 4, thickness: 3.0, code: 'A' },
+        { height: 5, thickness: 2.5, code: 'C' }
+      ]};
+    default:
+      return { base: 6.0, wall: 6.0, roof: 1.5, tiers: [
+        { height: 1, thickness: 6.0, code: 'A' },
+        { height: 2, thickness: 6.0, code: 'A' },
+        { height: 3, thickness: 5.0, code: 'A' },
+        { height: 4, thickness: 4.0, code: 'A' },
+        { height: 5, thickness: 3.0, code: 'A' },
+        { height: 6, thickness: 2.5, code: 'C' }
+      ]};
+  }
 }
 
 // ============================================
@@ -180,6 +217,7 @@ export function calculateFRPBOM(inputs) {
   // Calculate panel grid
   const lengthPanels = Math.ceil(length / panelSize);
   const widthPanels = Math.ceil(width / panelSize);
+  const heightPanels = Math.ceil(height / panelSize);
   const perimeter = 2 * (lengthPanels + widthPanels);
 
   // Get FRP depth code based on tank height
@@ -492,15 +530,18 @@ export function calculateFRPBOM(inputs) {
 
 /**
  * Generate SKU code for steel panels
+ * FIXED: Uses correct thickness code format
+ * - 3.0mm → "3" (not "30")
+ * - 2.5mm → "25"
  */
 export function generateSteelSKU(panelType, location, thickness, size, material) {
   // panelType: '1' or '2' (Type 1 or Type 2)
   // location: 'A', 'B', 'C', 'AB', 'BCL', 'BCR', etc.
-  // thickness: 2.5, 3.0, 4.5, 5.0, etc.
+  // thickness: 2.5, 3.0, 4.0, 5.0, etc.
   // size: 'm' or 'i'
   // material: 'S2' (SS316), 'S1' (SS304), 'HDG', 'MS'
 
-  const thicknessCode = thickness.toString().replace('.', '');
+  const thicknessCode = getThicknessCode(thickness);
   return `${panelType}${location}${thicknessCode}-${size}-${material}`;
 }
 
@@ -691,18 +732,20 @@ export function calculateSteelBOM(inputs) {
 
   if (partitionCount > 0) {
     thickness.tiers.forEach(tier => {
-      // Corner partition panels (Cφ)
+      const thicknessCode = getThicknessCode(tier.thickness);
+
+      // Corner partition panels (C¢)
       bom.partition.push({
-        sku: `${typePrefix}Cφ${tier.thickness.toString().replace('.', '')}-${panelType}-${materialCode}`,
+        sku: `${typePrefix}C¢${thicknessCode}-${panelType}-${materialCode}`,
         description: `Partition Corner - Tier ${tier.height} - ${tier.thickness}mm`,
         quantity: 2 * partitionCount,
         unitPrice: 0
       });
 
-      // Main partition panels (Bφ)
+      // Main partition panels (B¢)
       const mainPartitionPanels = Math.max(1, partitionSpan - 2);
       bom.partition.push({
-        sku: `${typePrefix}Bφ${tier.thickness.toString().replace('.', '')}-${panelType}-${materialCode}`,
+        sku: `${typePrefix}B¢${thicknessCode}-${panelType}-${materialCode}`,
         description: `Partition Wall - Tier ${tier.height} - ${tier.thickness}mm`,
         quantity: mainPartitionPanels * partitionCount,
         unitPrice: 0
@@ -715,7 +758,7 @@ export function calculateSteelBOM(inputs) {
   // ===========================
 
   const roofCount = lengthPanels * widthPanels;
-  const roofThicknessCode = roofThickness.toString().replace('.', '');
+  const roofThicknessCode = getThicknessCode(roofThickness);
 
   bom.roof.push({
     sku: `${typePrefix}R${roofThicknessCode}-${panelType}-${materialCode}`,
@@ -836,7 +879,9 @@ export function calculateSteelBOM(inputs) {
   if (bnwMaterial) {
     // Approximate bolt count: 13-20 per panel side depending on material
     const boltsPerSide = material.startsWith('SS') ? 20 : 16;
-    const totalBolts = bom.summary.totalPanels * boltsPerSide * 2; // Approximate
+    const totalPanels = bom.base.reduce((sum, item) => sum + item.quantity, 0) +
+                        bom.walls.reduce((sum, item) => sum + item.quantity, 0);
+    const totalBolts = totalPanels * boltsPerSide * 2; // Approximate
 
     bom.accessories.push({
       sku: `BNW-${bnwMaterial}`,

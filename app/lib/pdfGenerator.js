@@ -129,7 +129,7 @@ export async function generatePDF(bom, inputs) {
   const nominalVolume = inputs.length * inputs.width * inputs.height;
   const nominalLiters = nominalVolume * 1000;
 
-  const effectiveHeight = inputs.height - (inputs.freeboard || 0.1);
+  const effectiveHeight = inputs.height - (inputs.freeboard || 0.2);
   const effectiveVolume = inputs.length * inputs.width * effectiveHeight;
   const effectiveLiters = effectiveVolume * 1000;
 

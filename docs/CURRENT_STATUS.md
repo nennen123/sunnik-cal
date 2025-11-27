@@ -1,26 +1,26 @@
 # Current Status - Tank Calculator
 
-**Last Updated:** 2025-11-11
-**Overall Progress:** 78% Complete
-**Critical Bugs:** 3 High Priority
-**Test Pass Rate:** 3/6 (50%)
-**Current Phase:** Phase 0 - Documentation In Progress
+**Last Updated:** 2025-11-27
+**Overall Progress:** 85% Complete
+**Critical Bugs:** 1 Medium Priority
+**Test Pass Rate:** 5/6 (83%)
+**Current Phase:** Bug Fixes & Refinement
 
 ---
 
 ## 🎯 What We're Working On NOW
 
-**Current Focus:** Complete business logic documentation
-**Why:** Code has been rebuilt 3 times due to incomplete requirements
-**Goal:** Document ALL rules before writing/fixing code
-**ETA:** 1-2 days (2-3 sessions)
+**Current Focus:** Bug fixes and calculator refinement
+**Recent Fixes (Nov 27, 2025):**
+1. ✅ Fixed freeboard input - now uses meters with 0.2m (200mm) default/minimum
+2. ✅ Fixed getThicknessByHeight - now tier-based calculation instead of hardcoded ranges
+3. ✅ Fixed partition panel SKU symbols - changed φ to ¢ to match database
+4. ✅ Supabase integration complete and working
 
 **Next Immediate Steps:**
-1. ✅ Document FRP vs Steel material differences (COMPLETED - FRP_vs_STEEL_COMPLETE_3.md)
-2. ✅ Document accessory differences by material (COMPLETED - ACCESSORIES_COMPLETE.md)
-3. Document build standards (SONS, BSI, LPCB, MS1390, SANS)
-4. Document panel thickness selection rules
-5. Create validation test suite with 6 real quotes
+1. Test calculator with various tank configurations
+2. Verify pricing lookups match Supabase database
+3. Test PDF generation with new freeboard values
 
 ---
 
