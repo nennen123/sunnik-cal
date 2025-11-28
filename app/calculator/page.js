@@ -1,6 +1,8 @@
 'use client';
 
 // app/calculator/page.js
+// Version: 1.2.2
+// FIXED: Added buildStandard to initial state (BUG-013 fix)
 // Updated to use Supabase instead of CSV for pricing
 
 import { useState, useEffect } from 'react';
@@ -17,9 +19,22 @@ export default function CalculatorPage() {
     height: 3,
     freeboard: 0.2,  // Default 200mm in meters
     panelType: 'm',
+    panelTypeDetail: 1,  // Type 1 or Type 2
     material: 'SS316',
+    buildStandard: 'BSI',  // ← ADDED: Default build standard for steel (BUG-013 fix)
     partitionCount: 0,
-    roofThickness: 1.5
+    roofThickness: 1.5,
+    internalSupport: false,
+    externalSupport: false,
+    iBeamSize: '150x75',
+    wliMaterial: 'Ball Type',
+    internalLadderQty: 1,
+    internalLadderMaterial: 'HDG',
+    externalLadderQty: 1,
+    externalLadderMaterial: 'HDG',
+    safetyCage: true,
+    bnwMaterial: 'HDG',
+    pipeFittings: []  // Array of pipe fitting configurations
   });
 
   const [bom, setBOM] = useState(null);
@@ -63,7 +78,9 @@ export default function CalculatorPage() {
     }
 
     try {
+      // DEBUG: Log buildStandard to verify it's being passed correctly
       console.log('🔧 Calculating BOM with inputs:', inputs);
+      console.log('🔧 buildStandard value:', inputs.buildStandard);
 
       // Calculate BOM structure
       const result = calculateBOM(inputs);
@@ -89,6 +106,7 @@ export default function CalculatorPage() {
       // FIXED: Also apply prices to supports and accessories
       result.supports = applyPrices(result.supports || []);
       result.accessories = applyPrices(result.accessories || []);
+      result.pipeFittings = applyPrices(result.pipeFittings || []);
 
       // Recalculate totals with real prices - INCLUDING all sections
       const allPanels = [
@@ -101,7 +119,8 @@ export default function CalculatorPage() {
       const allItems = [
         ...allPanels,
         ...(result.supports || []),
-        ...(result.accessories || [])
+        ...(result.accessories || []),
+        ...(result.pipeFittings || [])
       ];
 
       result.summary.totalPanels = allPanels.reduce((sum, item) => sum + item.quantity, 0);
@@ -111,6 +130,7 @@ export default function CalculatorPage() {
       console.log('📊 BOM Summary:', {
         totalPanels: result.summary.totalPanels,
         totalCost: result.summary.totalCost.toFixed(2),
+        buildStandard: inputs.buildStandard,
         basePanels: result.base.length,
         wallPanels: result.walls.length,
         partitionPanels: result.partition.length,
@@ -139,10 +159,24 @@ export default function CalculatorPage() {
       length: 5,
       width: 4,
       height: 3,
+      freeboard: 0.2,
       panelType: 'm',
+      panelTypeDetail: 1,
       material: 'SS316',
+      buildStandard: 'BSI',  // ← ADDED: Reset includes buildStandard (BUG-013 fix)
       partitionCount: 0,
-      roofThickness: 1.5
+      roofThickness: 1.5,
+      internalSupport: false,
+      externalSupport: false,
+      iBeamSize: '150x75',
+      wliMaterial: 'Ball Type',
+      internalLadderQty: 1,
+      internalLadderMaterial: 'HDG',
+      externalLadderQty: 1,
+      externalLadderMaterial: 'HDG',
+      safetyCage: true,
+      bnwMaterial: 'HDG',
+      pipeFittings: []
     });
     setBOM(null);
     setShowResults(false);

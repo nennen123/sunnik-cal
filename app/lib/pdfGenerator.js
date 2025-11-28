@@ -1,7 +1,7 @@
 // app/lib/pdfGenerator.js
 // Generate professional PDF quotes for Sunnik Tank BOM
-// Version: 1.2.0
-// Updated: Added support for all BOM sections including pipe fittings
+// Version: 1.2.1
+// Updated: Added Effective Volume display in PDF output
 
 export async function generatePDF(bom, inputs) {
   // Dynamic imports for client-side only
@@ -90,9 +90,14 @@ export async function generatePDF(bom, inputs) {
   const effectiveVolume = inputs.length * inputs.width * (inputs.height - (inputs.freeboard || 0.2));
   const effectiveVolumeLiters = effectiveVolume * 1000;
 
+  // Freeboard default is 200mm (0.2m) if not specified
+  const freeboard = inputs.freeboard || 0.2;
+  const freeboardMM = Math.round(freeboard * 1000);
+
   const specs = [
     { label: 'Dimensions:', value: `${inputs.length}m × ${inputs.width}m × ${inputs.height}m` },
     { label: 'Nominal Volume:', value: `${volumeLiters.toLocaleString()} L (${volume.toFixed(2)} m³)` },
+    { label: 'Effective Volume:', value: `${effectiveVolumeLiters.toLocaleString()} L (${freeboardMM}mm freeboard)` },
     { label: 'Material:', value: getMaterialName(inputs.material) },
     { label: 'Build Standard:', value: getBuildStandardName(inputs.buildStandard) },
     { label: 'Panel Type:', value: `${inputs.panelType === 'm' ? 'Metric (1m)' : 'Imperial (4ft)'} Type ${inputs.panelTypeDetail || 1}` },
@@ -114,7 +119,7 @@ export async function generatePDF(bom, inputs) {
     doc.text(spec.value, x + labelWidth + 2, y);
   });
 
-  yPosition += 38;
+  yPosition += 48;
 
   // === BILL OF MATERIALS SECTION ===
 
