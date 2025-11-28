@@ -602,16 +602,10 @@ export default function TankInputs({ inputs, setInputs }) {
           PIPE FITTINGS & ACCESSORIES SECTION
           ========================================== */}
       <div className="border-t pt-5">
-        <div className="flex justify-between items-center mb-4">
+        <div className="mb-4">
           <h3 className="text-sm font-semibold text-gray-800 uppercase">
             🚰 Pipe Fittings & Accessories
           </h3>
-          <button
-            onClick={addPipeFitting}
-            className="px-3 py-1 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            + Add Fitting
-          </button>
         </div>
 
         {pipeFittings.length === 0 ? (
@@ -619,9 +613,9 @@ export default function TankInputs({ inputs, setInputs }) {
             <p className="text-gray-500 text-sm">No pipe fittings added</p>
             <button
               onClick={addPipeFitting}
-              className="mt-2 text-blue-600 text-sm hover:underline"
+              className="mt-2 px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
             >
-              Click to add your first fitting
+              + Add Fitting
             </button>
           </div>
         ) : (
@@ -762,6 +756,14 @@ export default function TankInputs({ inputs, setInputs }) {
                 )}
               </div>
             ))}
+
+            {/* Add Fitting Button - At the end of list */}
+            <button
+              onClick={addPipeFitting}
+              className="w-full py-3 border-2 border-dashed border-blue-300 text-blue-600 rounded-lg hover:bg-blue-50 hover:border-blue-400 transition-colors font-medium"
+            >
+              + Add Another Fitting
+            </button>
           </div>
         )}
 

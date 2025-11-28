@@ -1,12 +1,29 @@
 // app/calculator/components/QuoteSummary.js
+// Version: 1.2.0
+// Updated: Added Export PDF button
+
+'use client';
+
+import { useState } from 'react';
 
 export default function QuoteSummary({ bom, inputs }) {
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportError, setExportError] = useState(null);
+
   const materialNames = {
     'SS316': 'Stainless Steel 316',
     'SS304': 'Stainless Steel 304',
     'HDG': 'Hot Dip Galvanized',
-    'MS': 'Mild Steel',
+    'MS': 'Mild Steel Painted',
     'FRP': 'Fiberglass Reinforced Plastic'
+  };
+
+  const buildStandardNames = {
+    'BSI': 'BSI (British Standard)',
+    'LPCB': 'LPCB (Loss Prevention)',
+    'SANS': 'SANS 10329:2020',
+    'MS1390': 'MS1390:2010 (SPAN)',
+    'SS245': 'SS245:2014 (Singapore)'
   };
 
   const panelTypeNames = {
@@ -14,34 +31,32 @@ export default function QuoteSummary({ bom, inputs }) {
     'i': 'Imperial (4ft × 4ft)'
   };
 
-  const panelTypeDetailNames = {
-    'type1': 'Type 1',
-    'type2': 'Type 2'
+  const volume = inputs.length * inputs.width * inputs.height;
+  const volumeLiters = volume * 1000;
+  const effectiveVolume = inputs.length * inputs.width * (inputs.height - (inputs.freeboard || 0.2));
+  const effectiveVolumeLiters = effectiveVolume * 1000;
+
+  // Handle PDF Export
+  const handleExportPDF = async () => {
+    setIsExporting(true);
+    setExportError(null);
+
+    try {
+      // Dynamic import to avoid SSR issues
+      const { generatePDF } = await import('../../lib/pdfGenerator');
+      const fileName = await generatePDF(bom, inputs);
+      console.log(`✅ PDF exported: ${fileName}`);
+    } catch (error) {
+      console.error('PDF export error:', error);
+      setExportError('Failed to export PDF. Please try again.');
+    } finally {
+      setIsExporting(false);
+    }
   };
-
-  const tankFinishNames = {
-    'none': 'None (Bare MS)',
-    'hdg': 'HDG',
-    'hdg_hdpe': 'HDG + HDPE',
-    'hdgebs': 'HDGEBS',
-    'hdgebs_hdpe': 'HDGEBS + HDPE',
-    'ms_hdpe': 'MS + HDPE',
-    'msebs': 'MSEBS',
-    'msebs_hdpe': 'MSEBS + HDPE'
-  };
-
-  // Calculate capacities
-  const nominalCapacity = inputs.length * inputs.width * inputs.height;
-  const nominalLiters = nominalCapacity * 1000;
-
-  // Freeboard is already in meters (default 0.2m = 200mm)
-  const freeboardMeters = inputs.freeboard || 0.2;
-  const effectiveHeight = inputs.height - freeboardMeters;
-  const effectiveCapacity = inputs.length * inputs.width * Math.max(0, effectiveHeight);
-  const effectiveLiters = effectiveCapacity * 1000;
 
   return (
     <div className="bg-gradient-to-r from-blue-600 to-blue-800 rounded-lg shadow-lg p-6 text-white">
+      {/* Header Row */}
       <div className="flex justify-between items-start mb-6">
         <div>
           <h2 className="text-2xl font-bold mb-1">Tank Specification</h2>
@@ -50,105 +65,84 @@ export default function QuoteSummary({ bom, inputs }) {
           </p>
         </div>
         <div className="text-right">
-          <div className="text-sm text-blue-200 uppercase tracking-wide mb-1">
-            Nominal Capacity
-          </div>
           <div className="text-3xl font-bold">
-            {nominalLiters.toLocaleString()} L
+            {effectiveVolumeLiters.toLocaleString()} L
           </div>
-          <div className="text-sm text-blue-100">
-            {nominalCapacity.toFixed(2)} m³
+          <div className="text-xs text-blue-200">
+            Effective capacity
           </div>
-
-          <div className="mt-3 pt-3 border-t border-blue-400">
-            <div className="text-sm text-green-200 uppercase tracking-wide mb-1">
-              Effective Capacity
-            </div>
-            <div className="text-2xl font-bold text-green-100">
-              {effectiveLiters.toLocaleString()} L
-            </div>
-            <div className="text-xs text-green-200">
-              {effectiveCapacity.toFixed(2)} m³ (freeboard: {((inputs.freeboard || 0.2) * 1000).toFixed(0)}mm)
-            </div>
+          <div className="text-sm text-blue-100 mt-1">
+            ({volumeLiters.toLocaleString()} L nominal)
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+      {/* Specification Grid */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
         {/* Dimensions */}
-        <div className="bg-white bg-opacity-10 rounded-lg p-4">
+        <div className="bg-white bg-opacity-10 rounded-lg p-3">
           <div className="text-xs uppercase tracking-wide text-blue-200 mb-1">
             Dimensions
           </div>
-          <div className="font-semibold">
+          <div className="font-semibold text-sm">
             {inputs.length}m × {inputs.width}m × {inputs.height}m
           </div>
         </div>
 
         {/* Material */}
-        <div className="bg-white bg-opacity-10 rounded-lg p-4">
+        <div className="bg-white bg-opacity-10 rounded-lg p-3">
           <div className="text-xs uppercase tracking-wide text-blue-200 mb-1">
             Material
           </div>
-          <div className="font-semibold">
-            {materialNames[inputs.material]}
+          <div className="font-semibold text-sm">
+            {inputs.material}
           </div>
-          {inputs.material === 'MS' && inputs.tankFinish && inputs.tankFinish !== 'none' && (
-            <div className="text-xs text-blue-100 mt-1">
-              Finish: {tankFinishNames[inputs.tankFinish]}
-            </div>
-          )}
         </div>
 
-        {/* Panel Details */}
-        <div className="bg-white bg-opacity-10 rounded-lg p-4">
+        {/* Build Standard */}
+        <div className="bg-white bg-opacity-10 rounded-lg p-3">
+          <div className="text-xs uppercase tracking-wide text-blue-200 mb-1">
+            Build Standard
+          </div>
+          <div className="font-semibold text-sm">
+            {inputs.buildStandard || 'BSI'}
+          </div>
+        </div>
+
+        {/* Panel Type */}
+        <div className="bg-white bg-opacity-10 rounded-lg p-3">
           <div className="text-xs uppercase tracking-wide text-blue-200 mb-1">
             Panel Type
           </div>
-          <div className="font-semibold">
-            {panelTypeNames[inputs.panelType]}
-          </div>
-          <div className="text-xs text-blue-100 mt-1">
-            {panelTypeDetailNames[inputs.panelTypeDetail || 'type1']}
+          <div className="font-semibold text-sm">
+            {inputs.panelType === 'm' ? 'Metric' : 'Imperial'} T{inputs.panelTypeDetail || 1}
           </div>
         </div>
 
         {/* Partitions */}
-        <div className="bg-white bg-opacity-10 rounded-lg p-4">
+        <div className="bg-white bg-opacity-10 rounded-lg p-3">
           <div className="text-xs uppercase tracking-wide text-blue-200 mb-1">
             Partitions
           </div>
-          <div className="font-semibold">
-            {inputs.partitionCount > 0 ? `${inputs.partitionCount} partition${inputs.partitionCount > 1 ? 's' : ''}` : 'None'}
+          <div className="font-semibold text-sm">
+            {inputs.partitionCount > 0 ? inputs.partitionCount : 'None'}
           </div>
         </div>
 
-        {/* Freeboard */}
-        <div className="bg-white bg-opacity-10 rounded-lg p-4">
+        {/* Roof */}
+        <div className="bg-white bg-opacity-10 rounded-lg p-3">
           <div className="text-xs uppercase tracking-wide text-blue-200 mb-1">
-            Freeboard
+            Roof
           </div>
-          <div className="font-semibold">
-            {((inputs.freeboard || 0.2) * 1000).toFixed(0)} mm
-          </div>
-        </div>
-
-        {/* Support */}
-        <div className="bg-white bg-opacity-10 rounded-lg p-4">
-          <div className="text-xs uppercase tracking-wide text-blue-200 mb-1">
-            Support
-          </div>
-          <div className="font-semibold">
-            {inputs.supportType === 'internal' && 'Internal (Stays)'}
-            {inputs.supportType === 'external' && 'External (I-Beams)'}
-            {inputs.supportType === 'none' && 'None'}
+          <div className="font-semibold text-sm">
+            {inputs.roofThickness || 1.5}mm
           </div>
         </div>
       </div>
 
-      {/* Quick Stats */}
-      <div className="mt-6 pt-6 border-t border-blue-400 grid grid-cols-3 gap-4 text-center">
-        <div>
+      {/* Stats Row */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-4 border-t border-b border-blue-400">
+        <div className="text-center">
           <div className="text-2xl font-bold">
             {bom.summary.totalPanels}
           </div>
@@ -156,23 +150,80 @@ export default function QuoteSummary({ bom, inputs }) {
             Total Panels
           </div>
         </div>
-        <div>
+        <div className="text-center">
           <div className="text-2xl font-bold">
-            {bom.base.length + bom.walls.length + bom.partition.length + bom.roof.length + bom.supports.length + bom.accessories.length}
+            {(bom.base?.length || 0) + (bom.walls?.length || 0) + (bom.partition?.length || 0) + (bom.roof?.length || 0) + (bom.supports?.length || 0) + (bom.accessories?.length || 0)}
           </div>
           <div className="text-xs text-blue-200 uppercase tracking-wide">
             Line Items
           </div>
         </div>
-        <div>
+        <div className="text-center">
           <div className="text-2xl font-bold">
-            RM {bom.summary.totalCost.toLocaleString()}
+            {inputs.pipeFittings?.length || 0}
           </div>
           <div className="text-xs text-blue-200 uppercase tracking-wide">
-            Estimated Cost
+            Pipe Fittings
+          </div>
+        </div>
+        <div className="text-center">
+          <div className="text-2xl font-bold text-green-300">
+            RM {bom.summary.totalCost.toLocaleString('en-MY', { minimumFractionDigits: 2 })}
+          </div>
+          <div className="text-xs text-blue-200 uppercase tracking-wide">
+            Total Cost
           </div>
         </div>
       </div>
+
+      {/* Export Button */}
+      <div className="mt-6 flex justify-center">
+        <button
+          onClick={handleExportPDF}
+          disabled={isExporting}
+          className={`
+            flex items-center gap-2 px-6 py-3 rounded-lg font-semibold text-lg
+            transition-all duration-200 shadow-lg
+            ${isExporting
+              ? 'bg-gray-400 cursor-not-allowed'
+              : 'bg-white text-blue-700 hover:bg-blue-50 hover:shadow-xl active:scale-95'
+            }
+          `}
+        >
+          {isExporting ? (
+            <>
+              <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+              <span>Generating PDF...</span>
+            </>
+          ) : (
+            <>
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <span>Export PDF Quote</span>
+            </>
+          )}
+        </button>
+      </div>
+
+      {/* Error Message */}
+      {exportError && (
+        <div className="mt-4 p-3 bg-red-500 bg-opacity-20 border border-red-400 rounded-lg text-center">
+          <p className="text-red-100 text-sm">{exportError}</p>
+        </div>
+      )}
+
+      {/* Build Standard Info */}
+      {bom.summary.buildStandard && (
+        <div className="mt-4 text-center text-xs text-blue-200">
+          {bom.summary.buildStandard === 'LPCB' && '🔥 LPCB: Includes Vortex Pipe for fire protection'}
+          {bom.summary.buildStandard === 'MS1390' && '🇲🇾 MS1390: EPDM sealant, ABS roof pipe (SPAN approved)'}
+          {bom.summary.buildStandard === 'SS245' && '🇸🇬 SS245: PVC Foam sealant, UPVC roof pipe'}
+        </div>
+      )}
     </div>
   );
 }

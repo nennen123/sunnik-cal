@@ -16,7 +16,7 @@
   "dependencies": {
     "@react-pdf/renderer": "^4.3.0",
     "@supabase/supabase-js": "^2.81.0",
-    "jspdf": "^3.0.3",
+    "jspdf": "^3.0.4",
     "jspdf-autotable": "^5.0.2",
     "konva": "^10.0.2",
     "next": "^15.5.4",

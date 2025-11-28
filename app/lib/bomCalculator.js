@@ -312,7 +312,8 @@ export function calculateFRPBOM(inputs) {
     internalLadderMaterial = 'HDG',
     externalLadderQty = 0,
     externalLadderMaterial = 'HDG',
-    safetyCage = false
+    safetyCage = false,
+    pipeFittings = [] // Array of pipe fitting configurations
   } = inputs;
 
   // FRP is ALWAYS metric (1m × 1m panels)
@@ -341,6 +342,7 @@ export function calculateFRPBOM(inputs) {
     roof: [],
     supports: [],
     accessories: [],
+    pipeFittings: [],
     summary: {
       totalPanels: 0,
       totalCost: 0,
@@ -626,11 +628,33 @@ export function calculateFRPBOM(inputs) {
   });
 
   // ===========================
+  // PIPE FITTINGS
+  // ===========================
+
+  if (pipeFittings && pipeFittings.length > 0) {
+    pipeFittings.forEach(pf => {
+      // Generate SKU based on fitting configuration
+      const typeCode = pf.outsideItem === 'D/F Nozzle' ? 'DF' :
+                       pf.outsideItem === 'S/F Nozzle' ? 'SF' : 'FL';
+      const flangeCode = pf.flangeType.replace(/\s+/g, '');
+
+      bom.pipeFittings.push({
+        sku: `${pf.size}${typeCode}-${flangeCode}-${pf.outsideMaterial}`,
+        description: `${pf.opening} - ${pf.size}mm ${pf.flangeType} | Outside: ${pf.outsideMaterial} ${pf.outsideItem} | Inside: ${pf.insideMaterial} ${pf.insideItem}`,
+        quantity: pf.quantity,
+        unitPrice: 0
+      });
+    });
+
+    console.log(`   → ${pipeFittings.length} pipe fitting(s) added to FRP BOM`);
+  }
+
+  // ===========================
   // CALCULATE TOTALS
   // ===========================
 
   const allPanelItems = [...bom.base, ...bom.walls, ...bom.partition, ...bom.roof];
-  const allItems = [...allPanelItems, ...bom.supports, ...bom.accessories];
+  const allItems = [...allPanelItems, ...bom.supports, ...bom.accessories, ...bom.pipeFittings];
 
   bom.summary.totalPanels = allPanelItems.reduce((sum, item) => sum + item.quantity, 0);
   bom.summary.totalCost = allItems.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
@@ -723,7 +747,8 @@ export function calculateSteelBOM(inputs) {
     externalLadderQty = 0,
     externalLadderMaterial = 'HDG',
     safetyCage = false,
-    bnwMaterial = 'HDG'
+    bnwMaterial = 'HDG',
+    pipeFittings = [] // Array of pipe fitting configurations
   } = inputs;
 
   // Determine panel type detail (support both field names)
@@ -753,6 +778,7 @@ export function calculateSteelBOM(inputs) {
     roof: [],
     supports: [],
     accessories: [],
+    pipeFittings: [],
     summary: {
       totalPanels: 0,
       totalCost: 0,
@@ -1132,11 +1158,35 @@ export function calculateSteelBOM(inputs) {
   }
 
   // ===========================
+  // PIPE FITTINGS
+  // ===========================
+
+  if (pipeFittings && pipeFittings.length > 0) {
+    pipeFittings.forEach(pf => {
+      // Generate SKU based on fitting configuration
+      // Format: {size}{type}-{flange}-{material}
+      // Type: FL = Flange, DF = D/F Nozzle, SF = S/F Nozzle
+      const typeCode = pf.outsideItem === 'D/F Nozzle' ? 'DF' :
+                       pf.outsideItem === 'S/F Nozzle' ? 'SF' : 'FL';
+      const flangeCode = pf.flangeType.replace(/\s+/g, '');
+
+      bom.pipeFittings.push({
+        sku: `${pf.size}${typeCode}-${flangeCode}-${pf.outsideMaterial}`,
+        description: `${pf.opening} - ${pf.size}mm ${pf.flangeType} | Outside: ${pf.outsideMaterial} ${pf.outsideItem} | Inside: ${pf.insideMaterial} ${pf.insideItem}`,
+        quantity: pf.quantity,
+        unitPrice: 0 // Pipe fittings pricing is handled separately
+      });
+    });
+
+    console.log(`   → ${pipeFittings.length} pipe fitting(s) added to BOM`);
+  }
+
+  // ===========================
   // CALCULATE TOTALS
   // ===========================
 
   const allPanelItems = [...bom.base, ...bom.walls, ...bom.partition, ...bom.roof];
-  const allItems = [...allPanelItems, ...bom.supports, ...bom.accessories];
+  const allItems = [...allPanelItems, ...bom.supports, ...bom.accessories, ...bom.pipeFittings];
 
   bom.summary.totalPanels = allPanelItems.reduce((sum, item) => sum + item.quantity, 0);
   bom.summary.totalCost = allItems.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
