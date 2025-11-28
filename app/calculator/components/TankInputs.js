@@ -231,6 +231,25 @@ const handleMaterialChange = (material) => {
         </div>
       </div>
 
+      {/* HDG Tank Finish (only show if HDG is selected) */}
+      {inputs.material === 'HDG' && (
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            HDG Tank Finish
+          </label>
+          <select
+            value={inputs.hdgTankFinish || 'HDG'}
+            onChange={(e) => handleChange('hdgTankFinish', e.target.value)}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          >
+            <option value="HDG">HDG (Standard)</option>
+            <option value="HDG+HDPE">HDG + HDPE Lining</option>
+            <option value="HDGEBS">HDG + Epoxy Both Sides</option>
+            <option value="HDGEBS+HDPE">HDG + Epoxy Both Sides + HDPE</option>
+          </select>
+        </div>
+      )}
+
       {/* MS Tank Finish (only show if MS is selected) */}
       {inputs.material === 'MS' && (
         <div>
@@ -238,15 +257,11 @@ const handleMaterialChange = (material) => {
             MS Tank Finish
           </label>
           <select
-            value={inputs.msTankFinish || 'None'}
+            value={inputs.msTankFinish || 'Primer'}
             onChange={(e) => handleChange('msTankFinish', e.target.value)}
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
-            <option value="None">None</option>
-            <option value="HDG">HDG (Hot Dip Galvanized)</option>
-            <option value="HDG+HDPE">HDG + HDPE Lining</option>
-            <option value="HDGEBS">HDG + Epoxy Both Sides</option>
-            <option value="HDGEBS+HDPE">HDG + Epoxy Both Sides + HDPE</option>
+            <option value="Primer">Primer Coated</option>
             <option value="MS+HDPE">MS + HDPE Lining</option>
             <option value="MSEBS">MS + Epoxy Both Sides</option>
             <option value="MSEBS+HDPE">MS + Epoxy Both Sides + HDPE</option>
