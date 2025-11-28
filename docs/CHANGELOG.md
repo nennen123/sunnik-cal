@@ -21,6 +21,36 @@
 
 ---
 
+## [2025-11-27] - Session 4: Pipe Fittings & Accessories UI
+
+**Who:** Nelson + Claude
+**Duration:** ~30 minutes
+**Branch:** main
+
+### What Changed
+
+1. **Pipe Fittings Section Added** - Full pipe fitting configurator:
+   - Opening types: Inlet, Outlet, Overflow/Warning, Drain, Balancing
+   - Flange types: PN16, Table E, ANSI, JIS 10K, JAMNUT
+   - Pipe sizes: 2" to 12" (50mm to 300mm)
+   - Materials: MS, HDG, SS304, SS316
+   - Outside items: Flange, S/F Nozzle, D/F Nozzle, Socket
+   - Inside items: Flange, S/F Nozzle, D/F Nozzle, Socket, Vortex Inhibitor
+   - LPCB warning for Vortex Inhibitor on outlets
+
+2. **Ladder Material Options Updated**:
+   - Added FRP and Aluminium options for internal/external ladders
+
+3. **Build Standard Descriptions Updated**:
+   - MS1390: EPDM sealant, ABS roof pipe
+   - SS245: PVC Foam sealant, UPVC roof pipe
+   - LPCB: Added Vortex Pipe note
+
+### Files Modified
+- `app/calculator/components/TankInputs.js` - Added pipe fittings section, updated ladder options
+
+---
+
 ## [2025-11-27] - Session 3: FRP Accessories SKU Fix
 
 **Who:** Nelson + Claude

@@ -1,40 +1,112 @@
 // app/calculator/components/TankInputs.js
+// Version: 1.2.0
+// Updated: Added Pipe Fittings & Accessories section
+// Fixed: MS/HDG Tank Finish dropdowns (BUG-008)
+
+import { useState } from 'react';
 
 export default function TankInputs({ inputs, setInputs }) {
   const handleChange = (field, value) => {
     setInputs(prev => ({ ...prev, [field]: value }));
   };
 
-// Handle material change with FRP logic
-const handleMaterialChange = (material) => {
-  if (material === 'FRP') {
-    // FRP is always Metric Type 2, with FRP-specific build standard
-    setInputs(prev => ({
-      ...prev,
-      material: 'FRP',
-      panelType: 'm',
-      panelTypeDetail: 2,
-      buildStandard: 'MS1390'  // <-- ADD THIS LINE
-    }));
-  } else {
-    // Switch to steel build standard if coming from FRP
-    setInputs(prev => ({
-      ...prev,
-      material,
-      buildStandard: prev.buildStandard === 'MS1390' || prev.buildStandard === 'SS245'
-        ? 'SANS'  // Reset to SANS if was FRP standard
-        : prev.buildStandard
-    }));
-  }
-};
+  // Handle material change with FRP logic
+  const handleMaterialChange = (material) => {
+    if (material === 'FRP') {
+      // FRP is always Metric Type 2, with FRP-specific build standard
+      setInputs(prev => ({
+        ...prev,
+        material: 'FRP',
+        panelType: 'm',
+        panelTypeDetail: 2,
+        buildStandard: 'MS1390'
+      }));
+    } else {
+      // Switch to steel build standard if coming from FRP
+      setInputs(prev => ({
+        ...prev,
+        material,
+        buildStandard: prev.buildStandard === 'MS1390' || prev.buildStandard === 'SS245'
+          ? 'BSI'
+          : prev.buildStandard
+      }));
+    }
+  };
+
+  // ==========================================
+  // PIPE FITTINGS STATE & HANDLERS
+  // ==========================================
+
+  // Default pipe fitting template
+  const defaultPipeFitting = {
+    id: Date.now(),
+    opening: 'Outlet',
+    flangeType: 'PN16',
+    size: '100',
+    outsideMaterial: 'SS316',
+    outsideItem: 'Flange',
+    insideMaterial: 'SS316',
+    insideItem: 'Socket',
+    quantity: 1
+  };
+
+  // Initialize pipe fittings array if not exists
+  const pipeFittings = inputs.pipeFittings || [];
+
+  // Add new pipe fitting
+  const addPipeFitting = () => {
+    const newFitting = {
+      ...defaultPipeFitting,
+      id: Date.now(),
+      // Default material to match tank material
+      outsideMaterial: inputs.material === 'FRP' ? 'HDG' :
+                       inputs.material === 'MS' ? 'MS' :
+                       inputs.material === 'HDG' ? 'HDG' : inputs.material,
+      insideMaterial: inputs.material === 'FRP' ? 'HDG' :
+                      inputs.material === 'MS' ? 'MS' :
+                      inputs.material === 'HDG' ? 'HDG' : inputs.material
+    };
+    handleChange('pipeFittings', [...pipeFittings, newFitting]);
+  };
+
+  // Update pipe fitting
+  const updatePipeFitting = (id, field, value) => {
+    const updated = pipeFittings.map(pf =>
+      pf.id === id ? { ...pf, [field]: value } : pf
+    );
+    handleChange('pipeFittings', updated);
+  };
+
+  // Remove pipe fitting
+  const removePipeFitting = (id) => {
+    const filtered = pipeFittings.filter(pf => pf.id !== id);
+    handleChange('pipeFittings', filtered);
+  };
 
   // Check if FRP is selected (disable panel type controls)
   const isFRP = inputs.material === 'FRP';
 
+  // Pipe fitting options
+  const OPENING_TYPES = ['Inlet', 'Outlet', 'Overflow/Warning', 'Drain', 'Balancing'];
+  const FLANGE_TYPES = ['PN16', 'Table E', 'ANSI', 'JIS 10K', 'JAMNUT'];
+  const PIPE_SIZES = [
+    { value: '50', label: '2" (50mm)' },
+    { value: '65', label: '2½" (65mm)' },
+    { value: '80', label: '3" (80mm)' },
+    { value: '100', label: '4" (100mm)' },
+    { value: '150', label: '6" (150mm)' },
+    { value: '200', label: '8" (200mm)' },
+    { value: '250', label: '10" (250mm)' },
+    { value: '300', label: '12" (300mm)' }
+  ];
+  const PIPE_MATERIALS = ['MS', 'HDG', 'SS304', 'SS316'];
+  const OUTSIDE_ITEMS = ['Flange', 'S/F Nozzle', 'D/F Nozzle', 'Socket'];
+  const INSIDE_ITEMS = ['Flange', 'S/F Nozzle', 'D/F Nozzle', 'Socket', 'Vortex Inhibitor'];
+
   return (
     <div className="space-y-5">
-     {/* Material Selector - MOVED TO TOP */}
-     <div>
+      {/* Material Selector - MOVED TO TOP */}
+      <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
           Material
         </label>
@@ -62,7 +134,7 @@ const handleMaterialChange = (material) => {
           Build Standard
         </label>
         <select
-          value={inputs.buildStandard || (isFRP ? 'MS1390' : 'SANS')}
+          value={inputs.buildStandard || (isFRP ? 'MS1390' : 'BSI')}
           onChange={(e) => handleChange('buildStandard', e.target.value)}
           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         >
@@ -73,22 +145,22 @@ const handleMaterialChange = (material) => {
             </>
           ) : (
             <>
-              <option value="SANS">SANS 10329:2020 (South African)</option>
               <option value="BSI">BSI (British Standard)</option>
               <option value="LPCB">LPCB (Loss Prevention Certification Board)</option>
+              <option value="SANS">SANS 10329:2020 (South African)</option>
             </>
           )}
         </select>
         <p className="text-xs text-gray-500 mt-1">
           {isFRP ? (
             inputs.buildStandard === 'MS1390'
-              ? 'Malaysian Standard - 35% fiberglass minimum, SPAN approved'
-              : 'Singapore Standard for FRP tanks'
+              ? 'Malaysian Standard - EPDM sealant, ABS roof pipe'
+              : 'Singapore Standard - PVC Foam sealant, UPVC roof pipe'
           ) : (
             <>
-              {inputs.buildStandard === 'SANS' && 'Standard thickness progression based on height'}
-              {inputs.buildStandard === 'BSI' && 'British Standard: 5mm for 1-3 panels, 6mm base for 4+ panels'}
-              {inputs.buildStandard === 'LPCB' && 'LPCB Standard: 5mm for 1-3 panels, 6mm base for 4+ panels'}
+              {inputs.buildStandard === 'SANS' && 'Progressive thickness based on height'}
+              {inputs.buildStandard === 'BSI' && '5mm (1-3 panels), 6mm base (4+ panels)'}
+              {inputs.buildStandard === 'LPCB' && '5mm (1-3 panels), 6mm base (4+ panels) + Vortex Pipe'}
             </>
           )}
         </p>
@@ -135,7 +207,7 @@ const handleMaterialChange = (material) => {
             onClick={() => !isFRP && handleChange('panelTypeDetail', 1)}
             disabled={isFRP}
             className={`py-2 px-4 rounded-lg font-medium transition-colors ${
-              inputs.panelTypeDetail === 1
+              (inputs.panelTypeDetail || 1) === 1
                 ? 'bg-blue-600 text-white'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             } ${isFRP ? 'opacity-50 cursor-not-allowed' : ''}`}
@@ -146,7 +218,7 @@ const handleMaterialChange = (material) => {
             onClick={() => !isFRP && handleChange('panelTypeDetail', 2)}
             disabled={isFRP}
             className={`py-2 px-4 rounded-lg font-medium transition-colors ${
-              inputs.panelTypeDetail === 2
+              (inputs.panelTypeDetail || 1) === 2
                 ? 'bg-blue-600 text-white'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             } ${isFRP ? 'opacity-50 cursor-not-allowed' : ''}`}
@@ -370,10 +442,12 @@ const handleMaterialChange = (material) => {
         )}
       </div>
 
-      {/* Accessories Section */}
+      {/* ==========================================
+          TANK ACCESSORIES SECTION (moved above Pipe Fittings)
+          ========================================== */}
       <div className="border-t pt-5">
         <h3 className="text-sm font-semibold text-gray-800 uppercase mb-4">
-          Accessories
+          🔧 Tank Accessories
         </h3>
 
         {/* Water Level Indicator */}
@@ -433,7 +507,8 @@ const handleMaterialChange = (material) => {
                 <option value="MS">MS</option>
                 <option value="SS316">SS316</option>
                 <option value="SS304">SS304</option>
-                <option value="PVC">PVC Tube</option>
+                <option value="FRP">FRP</option>
+                <option value="Aluminium">Aluminium</option>
               </select>
             </div>
           </div>
@@ -477,7 +552,8 @@ const handleMaterialChange = (material) => {
                 <option value="MS">MS</option>
                 <option value="SS316">SS316</option>
                 <option value="SS304">SS304</option>
-                <option value="PVC">PVC Tube</option>
+                <option value="FRP">FRP</option>
+                <option value="Aluminium">Aluminium</option>
               </select>
             </div>
           </div>
@@ -520,6 +596,184 @@ const handleMaterialChange = (material) => {
             <option value="HDG-China">HDG (China)</option>
           </select>
         </div>
+      </div>
+
+      {/* ==========================================
+          PIPE FITTINGS & ACCESSORIES SECTION
+          ========================================== */}
+      <div className="border-t pt-5">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-sm font-semibold text-gray-800 uppercase">
+            🚰 Pipe Fittings & Accessories
+          </h3>
+          <button
+            onClick={addPipeFitting}
+            className="px-3 py-1 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            + Add Fitting
+          </button>
+        </div>
+
+        {pipeFittings.length === 0 ? (
+          <div className="text-center py-6 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+            <p className="text-gray-500 text-sm">No pipe fittings added</p>
+            <button
+              onClick={addPipeFitting}
+              className="mt-2 text-blue-600 text-sm hover:underline"
+            >
+              Click to add your first fitting
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {pipeFittings.map((fitting, index) => (
+              <div
+                key={fitting.id}
+                className="bg-gray-50 rounded-lg p-4 border border-gray-200"
+              >
+                {/* Fitting Header */}
+                <div className="flex justify-between items-center mb-3">
+                  <span className="font-medium text-gray-700">
+                    #{index + 1} - {fitting.opening} ({PIPE_SIZES.find(s => s.value === fitting.size)?.label || fitting.size})
+                  </span>
+                  <button
+                    onClick={() => removePipeFitting(fitting.id)}
+                    className="text-red-500 hover:text-red-700 text-sm"
+                  >
+                    🗑️ Remove
+                  </button>
+                </div>
+
+                {/* Row 1: Opening, Type, Size */}
+                <div className="grid grid-cols-3 gap-2 mb-3">
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Opening</label>
+                    <select
+                      value={fitting.opening}
+                      onChange={(e) => updatePipeFitting(fitting.id, 'opening', e.target.value)}
+                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+                    >
+                      {OPENING_TYPES.map(type => (
+                        <option key={type} value={type}>{type}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Flange Type</label>
+                    <select
+                      value={fitting.flangeType}
+                      onChange={(e) => updatePipeFitting(fitting.id, 'flangeType', e.target.value)}
+                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+                    >
+                      {FLANGE_TYPES.map(type => (
+                        <option key={type} value={type}>{type}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Size</label>
+                    <select
+                      value={fitting.size}
+                      onChange={(e) => updatePipeFitting(fitting.id, 'size', e.target.value)}
+                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+                    >
+                      {PIPE_SIZES.map(size => (
+                        <option key={size.value} value={size.value}>{size.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Row 2: Outside Tank */}
+                <div className="grid grid-cols-2 gap-2 mb-3">
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Outside - Material</label>
+                    <select
+                      value={fitting.outsideMaterial}
+                      onChange={(e) => updatePipeFitting(fitting.id, 'outsideMaterial', e.target.value)}
+                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+                    >
+                      {PIPE_MATERIALS.map(mat => (
+                        <option key={mat} value={mat}>{mat}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Outside - Item</label>
+                    <select
+                      value={fitting.outsideItem}
+                      onChange={(e) => updatePipeFitting(fitting.id, 'outsideItem', e.target.value)}
+                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+                    >
+                      {OUTSIDE_ITEMS.map(item => (
+                        <option key={item} value={item}>{item}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Row 3: Inside Tank */}
+                <div className="grid grid-cols-2 gap-2 mb-3">
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Inside - Material</label>
+                    <select
+                      value={fitting.insideMaterial}
+                      onChange={(e) => updatePipeFitting(fitting.id, 'insideMaterial', e.target.value)}
+                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+                    >
+                      {PIPE_MATERIALS.map(mat => (
+                        <option key={mat} value={mat}>{mat}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Inside - Item</label>
+                    <select
+                      value={fitting.insideItem}
+                      onChange={(e) => updatePipeFitting(fitting.id, 'insideItem', e.target.value)}
+                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+                    >
+                      {INSIDE_ITEMS.map(item => (
+                        <option key={item} value={item}>{item}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Row 4: Quantity */}
+                <div className="w-24">
+                  <label className="block text-xs text-gray-600 mb-1">Qty (Sets)</label>
+                  <select
+                    value={fitting.quantity}
+                    onChange={(e) => updatePipeFitting(fitting.id, 'quantity', parseInt(e.target.value))}
+                    className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+                  >
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => (
+                      <option key={n} value={n}>{n}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* LPCB Notice for Vortex Inhibitor */}
+                {inputs.buildStandard === 'LPCB' && fitting.opening === 'Outlet' && fitting.insideItem !== 'Vortex Inhibitor' && (
+                  <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-700">
+                    ⚠️ LPCB standard requires Vortex Inhibitor on outlet connections
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Pipe Fittings Summary */}
+        {pipeFittings.length > 0 && (
+          <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+            <p className="text-sm text-blue-800">
+              <strong>{pipeFittings.length}</strong> pipe fitting(s) configured •
+              Total sets: <strong>{pipeFittings.reduce((sum, pf) => sum + pf.quantity, 0)}</strong>
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Volume Display */}

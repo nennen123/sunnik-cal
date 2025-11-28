@@ -1,10 +1,14 @@
 // app/lib/bomCalculator.js
 // Sunnik Tank BOM Calculation Engine
+// Version: 1.2.0
 // FIXED:
 // - BUG-005: FRP Panel Calculation
 // - BUG-006: Thickness code format (3.0mm → "3", not "30")
 // - BUG-007: 4.5mm doesn't exist, use 5.0mm instead
-// - NEW: Type 2 Panel Support with tier-based diameter (Ø18 bottom, Ø14 upper)
+// - Type 2 Panel Support with tier-based diameter (Ø18 bottom, Ø14 upper)
+// - NEW: Build standard-specific thickness (SANS vs BSI/LPCB)
+// - NEW: FRP build standard differences (MS1390 vs SS245)
+// - NEW: LPCB includes Vortex Pipe as standard
 
 // ============================================
 // BUILD STANDARDS CONFIGURATION
@@ -27,6 +31,30 @@ export function getBuildStandards(material) {
       { code: 'LPCB', name: 'LPCB (Loss Prevention Certification Board)' },
       { code: 'SANS', name: 'SANS 10329:2020 (South African Standard)' }
     ];
+  }
+}
+
+/**
+ * Get FRP build standard specific components
+ * MS1390 (Malaysia): EPDM sealant, ABS roof pipe
+ * SS245 (Singapore): PVC Foam sealant, UPVC roof pipe
+ */
+export function getFRPBuildStandardComponents(buildStandard) {
+  if (buildStandard === 'SS245') {
+    return {
+      sealant: 'PVC Foam',
+      sealantSKU: 'SEALANT-PVC-FOAM',
+      roofPipe: 'UPVC',
+      roofPipeSKU: 'ROOF-PIPE-UPVC'
+    };
+  } else {
+    // Default to MS1390
+    return {
+      sealant: 'EPDM',
+      sealantSKU: 'SEALANT-EPDM',
+      roofPipe: 'ABS',
+      roofPipeSKU: 'ROOF-PIPE-ABS'
+    };
   }
 }
 
@@ -79,15 +107,27 @@ function getDiameterForTier(tierIndex) {
  */
 
 /**
- * Get panel thickness based on SANS 10329:2020 standard for STEEL tanks
- * FIXED: Now calculates tiers based on actual height and panel size
+ * Get panel thickness based on build standard for STEEL tanks
+ *
+ * SANS 10329:2020: Progressive thickness (thicker at bottom, thinner at top)
+ * BSI & LPCB: Simplified (5mm for 1-3 panels, 6mm base for 4+ panels)
+ *
+ * @param {number} heightMeters - Tank height in meters
+ * @param {string} panelType - 'm' (metric) or 'i' (imperial)
+ * @param {string} buildStandard - 'SANS', 'BSI', or 'LPCB'
  */
-export function getThicknessByHeight(heightMeters, panelType) {
+export function getThicknessByHeight(heightMeters, panelType, buildStandard = 'SANS') {
   const panelSize = panelType === 'm' ? 1.0 : 1.22;
   const numTiers = Math.ceil(heightMeters / panelSize);
 
-  console.log(`📐 Calculating thickness for ${heightMeters}m height, ${numTiers} tiers (${panelType === 'm' ? 'Metric' : 'Imperial'})`);
+  console.log(`📐 Calculating thickness for ${heightMeters}m height, ${numTiers} tiers (${panelType === 'm' ? 'Metric' : 'Imperial'}) - ${buildStandard} standard`);
 
+  // BSI and LPCB use simplified thickness logic
+  if (buildStandard === 'BSI' || buildStandard === 'LPCB') {
+    return getBSILPCBThickness(numTiers, panelType);
+  }
+
+  // SANS 10329:2020 uses progressive thickness
   if (panelType === 'm') {
     return getMetricThickness(numTiers);
   } else {
@@ -95,6 +135,43 @@ export function getThicknessByHeight(heightMeters, panelType) {
   }
 }
 
+/**
+ * BSI & LPCB Thickness Logic:
+ * - 1-3 panels height: 5mm for all panels
+ * - 4+ panels height: 6mm for base & tier 1, 5mm for the rest
+ */
+function getBSILPCBThickness(numTiers, panelType) {
+  const roof = 1.5;
+
+  if (numTiers <= 3) {
+    // 1-3 panels: All 5mm
+    const tiers = [];
+    for (let i = 1; i <= numTiers; i++) {
+      tiers.push({
+        height: i,
+        thickness: 5.0,
+        code: i === numTiers ? 'C' : 'A'
+      });
+    }
+    return { base: 5.0, wall: 5.0, roof, tiers };
+  } else {
+    // 4+ panels: 6mm base & tier 1, 5mm rest
+    const tiers = [];
+    for (let i = 1; i <= numTiers; i++) {
+      const thickness = (i === 1) ? 6.0 : 5.0;
+      tiers.push({
+        height: i,
+        thickness,
+        code: i === numTiers ? 'C' : 'A'
+      });
+    }
+    return { base: 6.0, wall: 6.0, roof, tiers };
+  }
+}
+
+/**
+ * SANS 10329:2020 Metric Thickness Logic (Progressive)
+ */
 function getMetricThickness(numTiers) {
   switch (numTiers) {
     case 1:
@@ -137,6 +214,9 @@ function getMetricThickness(numTiers) {
   }
 }
 
+/**
+ * SANS 10329:2020 Imperial Thickness Logic (Progressive)
+ */
 function getImperialThickness(numTiers) {
   switch (numTiers) {
     case 1:
@@ -213,12 +293,17 @@ function getFRPTiers(heightMeters) {
 /**
  * Calculate FRP tank BOM
  * FRP uses completely different panel system than steel
+ *
+ * Build Standard Differences:
+ * - MS1390 (Malaysia): EPDM sealant, ABS roof pipe
+ * - SS245 (Singapore): PVC Foam sealant, UPVC roof pipe
  */
 export function calculateFRPBOM(inputs) {
   const {
     length,
     width,
     height,
+    buildStandard = 'MS1390',
     partitionCount = 0,
     internalSupport = false,
     externalSupport = false,
@@ -246,6 +331,9 @@ export function calculateFRPBOM(inputs) {
   // Determine partition span (shorter side)
   const partitionSpan = Math.min(lengthPanels, widthPanels);
 
+  // Get build standard specific components
+  const buildComponents = getFRPBuildStandardComponents(buildStandard);
+
   const bom = {
     base: [],
     walls: [],
@@ -255,7 +343,10 @@ export function calculateFRPBOM(inputs) {
     accessories: [],
     summary: {
       totalPanels: 0,
-      totalCost: 0
+      totalCost: 0,
+      buildStandard: buildStandard,
+      sealantType: buildComponents.sealant,
+      roofPipeType: buildComponents.roofPipe
     }
   };
 
@@ -351,77 +442,48 @@ export function calculateFRPBOM(inputs) {
     });
   }
 
-  // Half panels for odd heights (3.5m, 4.5m, etc.)
+  // Half tier (if tank height has 0.5m component, e.g., 3.5m)
   if (hasHalfTier) {
-    const mainHalfCount = perimeter - 4;
-
-    // Main half panels (D15 = 1M × 1.5M)
     bom.walls.push({
-      sku: '3D15-FRP-A',
-      description: 'FRP Half Panel D15-A (1M × 1.5M)',
-      quantity: mainHalfCount,
-      unitPrice: 0
-    });
-
-    // Half panel corners
-    bom.walls.push({
-      sku: '3D15-FRP-BCL',
-      description: 'FRP Half Panel D15-BCL - Corner Left',
-      quantity: 2,
-      unitPrice: 0
-    });
-
-    bom.walls.push({
-      sku: '3D15-FRP-BCR',
-      description: 'FRP Half Panel D15-BCR - Corner Right',
-      quantity: 2,
-      unitPrice: 0
-    });
-  }
-
-  // AB panels for partition joints on walls
-  if (partitionCount > 0) {
-    const tierDepthCode = getFRPDepthCode(height);
-    const totalTiers = fullTiers + (hasHalfTier ? 1 : 0);
-
-    // 2 AB panels per partition per tier (where partition meets wall)
-    bom.walls.push({
-      sku: `3S${tierDepthCode}-FRP-AB`,
-      description: `FRP Sidewall S${tierDepthCode}-AB - Partition Joint`,
-      quantity: 2 * partitionCount * totalTiers,
+      sku: `3D15-FRP`,
+      description: `FRP Half Panel D15 - Top Half Tier`,
+      quantity: perimeter,
       unitPrice: 0
     });
   }
 
   // ===========================
-  // PARTITION PANELS
+  // PARTITION PANELS (if partitions exist)
   // ===========================
 
   if (partitionCount > 0) {
-    const tierDepthCode = getFRPDepthCode(height);
-    const totalTiers = fullTiers + (hasHalfTier ? 1 : 0);
+    for (let tier = 1; tier <= fullTiers; tier++) {
+      const tierDepthCode = getFRPDepthCode(height);
 
-    // Main partition panels (PF = full 1M × 1M partition)
-    // Quantity = (span - 2 corners) × tiers × number of partitions
-    const mainPartitionPerWall = Math.max(0, partitionSpan - 2);
-
-    if (mainPartitionPerWall > 0) {
+      // Partition corner panels (P-BCL, P-BCR)
       bom.partition.push({
-        sku: `3PF${tierDepthCode}-FRP-A`,
-        description: `FRP Partition Panel PF${tierDepthCode}-A`,
-        quantity: mainPartitionPerWall * totalTiers * partitionCount,
+        sku: `3P${tierDepthCode}-FRP-BCL`,
+        description: `FRP Partition P${tierDepthCode}-BCL - Tier ${tier} Corner Left`,
+        quantity: partitionCount,
+        unitPrice: 0
+      });
+
+      bom.partition.push({
+        sku: `3P${tierDepthCode}-FRP-BCR`,
+        description: `FRP Partition P${tierDepthCode}-BCR - Tier ${tier} Corner Right`,
+        quantity: partitionCount,
+        unitPrice: 0
+      });
+
+      // Partition main panels
+      const mainPartitionCount = Math.max(1, partitionSpan - 2) * partitionCount;
+      bom.partition.push({
+        sku: `3P${tierDepthCode}-FRP`,
+        description: `FRP Partition P${tierDepthCode} - Tier ${tier}`,
+        quantity: mainPartitionCount,
         unitPrice: 0
       });
     }
-
-    // Partition corner panels (where partition meets main wall)
-    // 2 corners per partition per tier
-    bom.partition.push({
-      sku: `3P${tierDepthCode}-FRP-A`,
-      description: `FRP Partition Corner P${tierDepthCode}-A`,
-      quantity: 2 * totalTiers * partitionCount,
-      unitPrice: 0
-    });
   }
 
   // ===========================
@@ -430,76 +492,87 @@ export function calculateFRPBOM(inputs) {
 
   const roofCount = lengthPanels * widthPanels;
 
-  // Main roof panels (using 3F00-FRP which has actual pricing)
-  // Reserve 2 for manholes
+  // Main roof panels
   bom.roof.push({
-    sku: '3F00-FRP',
-    description: 'FRP Roof Panel (Flat)',
-    quantity: Math.max(0, roofCount - 2),
+    sku: `3R00-FRP`,
+    description: `FRP Roof Panel R00`,
+    quantity: roofCount - 2, // minus manholes
     unitPrice: 0
   });
 
-  // Manhole covers (using half panel as placeholder)
+  // Manholes (standard 2 per tank)
   bom.roof.push({
-    sku: '3H00-FRP',
-    description: 'FRP Roof Manhole Cover',
+    sku: `3MH-FRP`,
+    description: `FRP Manhole`,
     quantity: 2,
     unitPrice: 0
   });
 
   // ===========================
-  // SUPPORT STRUCTURES
+  // BUILD STANDARD SPECIFIC ITEMS
+  // ===========================
+
+  // Sealant based on build standard
+  const totalPanelJoints = (lengthPanels * widthPanels) + (perimeter * heightPanels);
+  bom.accessories.push({
+    sku: buildComponents.sealantSKU,
+    description: `${buildComponents.sealant} Sealant - ${buildStandard} Standard`,
+    quantity: Math.ceil(totalPanelJoints / 10), // Estimate: 1 roll per 10 joints
+    unitPrice: 0
+  });
+
+  // Roof Pipe based on build standard
+  bom.accessories.push({
+    sku: buildComponents.roofPipeSKU,
+    description: `${buildComponents.roofPipe} Roof Pipe - ${buildStandard} Standard`,
+    quantity: Math.ceil(perimeter / 2), // Estimate based on perimeter
+    unitPrice: 0
+  });
+
+  // Roof Brackets (ABS for FRP)
+  bom.accessories.push({
+    sku: `ROOF-BRACKET-ABS`,
+    description: `ABS Roof Bracket`,
+    quantity: perimeter * 2,
+    unitPrice: 0
+  });
+
+  // ===========================
+  // SUPPORT STRUCTURES (FRP - Internal Only)
   // ===========================
 
   if (internalSupport) {
-    // FRP internal supports - calculate based on tank size
-    const horizontalStays = Math.max(0, (lengthPanels - 1) * (heightPanels - 1));
-    const verticalStays = Math.max(0, (widthPanels - 1) * (heightPanels - 1));
-
-    if (horizontalStays > 0) {
-      bom.supports.push({
-        sku: 'IS-FRP-H',
-        description: 'FRP Internal Horizontal Stay',
-        quantity: horizontalStays,
-        unitPrice: 0
-      });
-    }
-
-    if (verticalStays > 0) {
-      bom.supports.push({
-        sku: 'IS-FRP-V',
-        description: 'FRP Internal Vertical Stay',
-        quantity: verticalStays,
-        unitPrice: 0
-      });
-    }
-  }
-
-  // Note: FRP tanks typically don't use external I-beam supports
-  // They use internal bracing with ABS brackets
-  if (externalSupport) {
+    // FRP uses SS304 internal brackets (not SS316)
+    const bracketCount = (lengthPanels - 1) * (widthPanels - 1) * heightPanels;
     bom.supports.push({
-      sku: 'ES-FRP-BRACKET',
-      description: 'FRP External Support Bracket (ABS)',
-      quantity: perimeter * 2,
+      sku: `INT-BRACKET-SS304-FRP`,
+      description: `Internal Bracket SS304 (FRP Tank)`,
+      quantity: bracketCount,
+      unitPrice: 0
+    });
+
+    // Internal tie rods
+    const tieRodCount = (lengthPanels + widthPanels) * heightPanels;
+    bom.supports.push({
+      sku: `TIE-ROD-SS304-FRP`,
+      description: `Tie Rod SS304 (FRP Tank)`,
+      quantity: tieRodCount,
       unitPrice: 0
     });
   }
 
+  // Note: FRP does NOT support external I-beam support
+  if (externalSupport) {
+    console.warn('⚠️ FRP tanks do not support external I-beam structures');
+  }
+
   // ===========================
-  // ACCESSORIES (FRP-SPECIFIC SKU FORMATS)
+  // ACCESSORIES
   // ===========================
 
-  // Helper: Get FRP ladder height code (always metric format)
-  const getFRPLadderHeight = (heightInMeters) => {
-    // Round to nearest 0.5m, then format as 10M, 15M, 20M, etc.
-    const rounded = Math.round(heightInMeters * 2) / 2;
-    return `${Math.round(rounded * 10)}M`;
-  };
-
-  // Water Level Indicator - Ball Type format
+  // Water Level Indicator
   if (wliMaterial && wliMaterial !== 'None') {
-    const wliHeightCode = Math.round(height * 10) + 'M'; // 4m -> 40M
+    const wliHeightCode = Math.round(height * 10) + 'M';
     bom.accessories.push({
       sku: `WLI-BT-${wliHeightCode}`,
       description: `Water Level Indicator - Ball Type ${height}M`,
@@ -508,30 +581,31 @@ export function calculateFRPBOM(inputs) {
     });
   }
 
-  // Internal Ladder - FRP uses IL-FRP-{height}M format
+  // Internal Ladder (FRP tanks use FRP or HDG ladders, not SS316)
   if (internalLadderQty > 0) {
-    const frpLadderHeight = getFRPLadderHeight(height);
+    const ladderMat = internalLadderMaterial === 'FRP' ? 'FRP' : 'HDG';
+    const ladderHeightCode = Math.round(height * 10) + 'M';
     bom.accessories.push({
-      sku: `IL-FRP-${frpLadderHeight}`,
-      description: `Internal Ladder FRP ${frpLadderHeight.replace('M', 'm')}`,
+      sku: `IL-${ladderMat}-${ladderHeightCode}`,
+      description: `Internal Ladder - ${ladderMat} ${ladderHeightCode}`,
       quantity: internalLadderQty,
       unitPrice: 0
     });
   }
 
-  // External Ladder - FRP tanks typically use HDG external ladders
+  // External Ladder (HDG only for FRP tanks)
   if (externalLadderQty > 0) {
-    const extHeightCode = Math.round(height * 10) + 'M'; // 4m -> 40M
+    const ladderHeightCode = Math.round(height * 10) + 'M';
     bom.accessories.push({
-      sku: `EL-HDG-${extHeightCode}`,
-      description: `External Ladder - HDG ${extHeightCode}`,
+      sku: `EL-HDG-${ladderHeightCode}`,
+      description: `External Ladder - HDG ${ladderHeightCode}`,
       quantity: externalLadderQty,
       unitPrice: 0
     });
 
-    // Safety cage if external ladder and height > 3m
+    // Safety Cage
     if (safetyCage || height > 3) {
-      const cageHeightCode = `${Math.round(height)}m`;
+      const cageHeightCode = Math.round(height * 10) + 'm';
       bom.accessories.push({
         sku: `SafetyCage-${cageHeightCode}-HDG`,
         description: `Safety Cage - HDG ${cageHeightCode}`,
@@ -540,6 +614,16 @@ export function calculateFRPBOM(inputs) {
       });
     }
   }
+
+  // Bolts for FRP (13 per panel side, HDG or SS304)
+  const totalPanels = roofCount + (perimeter * heightPanels) + (lengthPanels * widthPanels);
+  const boltCount = totalPanels * 13 * 2; // 13 bolts per side, 2 sides
+  bom.accessories.push({
+    sku: `BNW-HDG-FRP`,
+    description: `Bolts, Nuts & Washers - HDG for FRP (${boltCount} pcs approx)`,
+    quantity: Math.ceil(boltCount / 100),
+    unitPrice: 0
+  });
 
   // ===========================
   // CALCULATE TOTALS
@@ -550,6 +634,9 @@ export function calculateFRPBOM(inputs) {
 
   bom.summary.totalPanels = allPanelItems.reduce((sum, item) => sum + item.quantity, 0);
   bom.summary.totalCost = allItems.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
+
+  console.log(`📦 FRP BOM calculated: ${buildStandard} standard`);
+  console.log(`   → Sealant: ${buildComponents.sealant}, Roof Pipe: ${buildComponents.roofPipe}`);
 
   return bom;
 }
@@ -613,6 +700,7 @@ export function generateSteelSKU(panelType, location, thickness, size, material,
 /**
  * Calculate Steel tank BOM (SS316, SS304, HDG, MS)
  * Supports both Type 1 and Type 2 panels
+ * Supports different build standards (SANS, BSI, LPCB)
  */
 export function calculateSteelBOM(inputs) {
   const {
@@ -623,6 +711,7 @@ export function calculateSteelBOM(inputs) {
     panelTypeDetail = 1, // 1 or 2 (Type 1 or Type 2)
     steelType = '1', // Alternative field name for panelTypeDetail
     material = 'SS316', // 'SS316', 'SS304', 'HDG', 'MS'
+    buildStandard = 'SANS', // 'SANS', 'BSI', 'LPCB'
     partitionCount = 0,
     roofThickness = 1.5,
     internalSupport = false,
@@ -653,8 +742,8 @@ export function calculateSteelBOM(inputs) {
   // Determine which side is shorter (for partition orientation)
   const partitionSpan = Math.min(lengthPanels, widthPanels);
 
-  // Get thickness specification
-  const thickness = getThicknessByHeight(height, panelType);
+  // Get thickness specification based on build standard
+  const thickness = getThicknessByHeight(height, panelType, buildStandard);
   const totalTiers = thickness.tiers.length;
 
   const bom = {
@@ -666,7 +755,8 @@ export function calculateSteelBOM(inputs) {
     accessories: [],
     summary: {
       totalPanels: 0,
-      totalCost: 0
+      totalCost: 0,
+      buildStandard: buildStandard
     }
   };
 
@@ -691,7 +781,7 @@ export function calculateSteelBOM(inputs) {
   // Perimeter base panels
   bom.base.push({
     sku: baseSKU,
-    description: `Base Panel - ${baseThickness}mm${isType2 ? ' [Type 2]' : ''}`,
+    description: `Base Panel - ${baseThickness}mm${isType2 ? ' [Type 2]' : ''} (${buildStandard})`,
     quantity: perimeter,
     unitPrice: 0
   });
@@ -712,37 +802,37 @@ export function calculateSteelBOM(inputs) {
   });
 
   // Interior base panels
-  const interiorBase = Math.max(0, (lengthPanels - 2) * (widthPanels - 2));
-  if (interiorBase > 0) {
+  const interiorBaseCount = Math.max(0, (lengthPanels - 2) * (widthPanels - 2));
+  if (interiorBaseCount > 0) {
     bom.base.push({
       sku: generateSteelSKU(typePrefix, 'A', baseThickness, panelType, materialCode, baseDiameter),
       description: `Interior Base Panel - ${baseThickness}mm${isType2 ? ' [Type 2]' : ''}`,
-      quantity: interiorBase,
+      quantity: interiorBaseCount,
       unitPrice: 0
     });
   }
 
-  // Partition base support (if partitions exist)
+  // Partition base support
   if (partitionCount > 0) {
-    const abPerPartition = Math.max(1, partitionSpan - 4);
     bom.base.push({
       sku: generateSteelSKU(typePrefix, 'AB', baseThickness, panelType, materialCode, baseDiameter),
       description: `Partition Base Support - ${baseThickness}mm${isType2 ? ' [Type 2]' : ''}`,
-      quantity: abPerPartition * partitionCount,
+      quantity: partitionSpan * partitionCount,
       unitPrice: 0
     });
 
+    // Partition corner supports
     bom.base.push({
       sku: generateSteelSKU(typePrefix, 'BCL', baseThickness, panelType, materialCode, baseDiameter),
       description: `Partition Corner Left - ${baseThickness}mm${isType2 ? ' [Type 2]' : ''}`,
-      quantity: 2 * partitionCount,
+      quantity: partitionCount,
       unitPrice: 0
     });
 
     bom.base.push({
       sku: generateSteelSKU(typePrefix, 'BCR', baseThickness, panelType, materialCode, baseDiameter),
       description: `Partition Corner Right - ${baseThickness}mm${isType2 ? ' [Type 2]' : ''}`,
-      quantity: 2 * partitionCount,
+      quantity: partitionCount,
       unitPrice: 0
     });
   }
@@ -763,7 +853,7 @@ export function calculateSteelBOM(inputs) {
       // Bottom tier corners
       bom.walls.push({
         sku: generateSteelSKU(typePrefix, 'B', tier.thickness, panelType, materialCode, tierDiameter),
-        description: `Wall Corner Bottom - Tier ${tier.height} - ${tier.thickness}mm${isType2 ? ` [Ø${tierDiameter}]` : ''}`,
+        description: `Wall Corner Bottom - Tier ${tier.height} - ${tier.thickness}mm${isType2 ? ` [Ø${tierDiameter}]` : ''} (${buildStandard})`,
         quantity: 4,
         unitPrice: 0
       });
@@ -771,7 +861,7 @@ export function calculateSteelBOM(inputs) {
       // Bottom tier main walls
       bom.walls.push({
         sku: generateSteelSKU(typePrefix, tier.code, tier.thickness, panelType, materialCode, tierDiameter),
-        description: `Wall Panel - Tier ${tier.height} - ${tier.thickness}mm${isType2 ? ` [Ø${tierDiameter}]` : ''}`,
+        description: `Wall Panel - Tier ${tier.height} - ${tier.thickness}mm${isType2 ? ` [Ø${tierDiameter}]` : ''} (${buildStandard})`,
         quantity: perimeter - 4,
         unitPrice: 0
       });
@@ -780,7 +870,7 @@ export function calculateSteelBOM(inputs) {
       // Top tier corners
       bom.walls.push({
         sku: generateSteelSKU(typePrefix, tier.code, tier.thickness, panelType, materialCode, tierDiameter),
-        description: `Wall Corner Top - Tier ${tier.height} - ${tier.thickness}mm${isType2 ? ` [Ø${tierDiameter}]` : ''}`,
+        description: `Wall Corner Top - Tier ${tier.height} - ${tier.thickness}mm${isType2 ? ` [Ø${tierDiameter}]` : ''} (${buildStandard})`,
         quantity: 4,
         unitPrice: 0
       });
@@ -788,7 +878,7 @@ export function calculateSteelBOM(inputs) {
       // Top tier main walls
       bom.walls.push({
         sku: generateSteelSKU(typePrefix, 'B', tier.thickness, panelType, materialCode, tierDiameter),
-        description: `Wall Panel Top - Tier ${tier.height} - ${tier.thickness}mm${isType2 ? ` [Ø${tierDiameter}]` : ''}`,
+        description: `Wall Panel Top - Tier ${tier.height} - ${tier.thickness}mm${isType2 ? ` [Ø${tierDiameter}]` : ''} (${buildStandard})`,
         quantity: perimeter - 4,
         unitPrice: 0
       });
@@ -797,7 +887,7 @@ export function calculateSteelBOM(inputs) {
       // Middle tiers - all A panels
       bom.walls.push({
         sku: generateSteelSKU(typePrefix, tier.code, tier.thickness, panelType, materialCode, tierDiameter),
-        description: `Wall Panel - Tier ${tier.height} - ${tier.thickness}mm${isType2 ? ` [Ø${tierDiameter}]` : ''}`,
+        description: `Wall Panel - Tier ${tier.height} - ${tier.thickness}mm${isType2 ? ` [Ø${tierDiameter}]` : ''} (${buildStandard})`,
         quantity: perimeter,
         unitPrice: 0
       });
@@ -847,7 +937,7 @@ export function calculateSteelBOM(inputs) {
   bom.roof.push({
     sku: `1R${roofThicknessCode}-${panelType}-${materialCode}`,
     description: `Roof Panel - ${roofThickness}mm`,
-    quantity: Math.max(0, roofCount - 4),
+    quantity: roofCount - 4, // Main panels minus special panels
     unitPrice: 0
   });
 
@@ -1029,6 +1119,19 @@ export function calculateSteelBOM(inputs) {
   }
 
   // ===========================
+  // LPCB SPECIFIC: VORTEX PIPE
+  // ===========================
+
+  if (buildStandard === 'LPCB') {
+    bom.accessories.push({
+      sku: `VORTEX-PIPE-${materialCode}`,
+      description: `Vortex Pipe - ${material} (LPCB Standard)`,
+      quantity: 1,
+      unitPrice: 0
+    });
+  }
+
+  // ===========================
   // CALCULATE TOTALS
   // ===========================
 
@@ -1039,9 +1142,15 @@ export function calculateSteelBOM(inputs) {
   bom.summary.totalCost = allItems.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
 
   // Log for debugging
-  console.log(`📦 Steel BOM calculated: Type ${typeDetail}, ${material}, ${panelType === 'm' ? 'Metric' : 'Imperial'}`);
+  console.log(`📦 Steel BOM calculated: Type ${typeDetail}, ${material}, ${panelType === 'm' ? 'Metric' : 'Imperial'}, ${buildStandard} standard`);
   if (isType2) {
     console.log(`   → Using Type 2 SKUs with tier-based diameter (Ø18 bottom, Ø14 upper)`);
+  }
+  if (buildStandard === 'BSI' || buildStandard === 'LPCB') {
+    console.log(`   → ${buildStandard} thickness: 5mm (1-3 panels), 6mm base (4+ panels)`);
+  }
+  if (buildStandard === 'LPCB') {
+    console.log(`   → LPCB: Vortex Pipe included as standard`);
   }
 
   return bom;
@@ -1066,7 +1175,8 @@ export function calculateBOM(inputs) {
 
   // Steel tanks (SS316, SS304, HDG, MS)
   const typeDetail = inputs.panelTypeDetail || inputs.steelType || 1;
-  console.log(`📦 Calculating ${material} steel tank BOM (Type ${typeDetail})...`);
+  const buildStandard = inputs.buildStandard || 'SANS';
+  console.log(`📦 Calculating ${material} steel tank BOM (Type ${typeDetail}, ${buildStandard})...`);
   return calculateSteelBOM(inputs);
 }
 
