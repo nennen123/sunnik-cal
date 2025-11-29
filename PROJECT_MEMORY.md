@@ -1849,3 +1849,87 @@ sunnik_calc/
 ---
 
 *End of Session 5 Update*
+
+---
+
+## Session 6: Vercel Deployment Verification
+**Date:** November 29, 2025
+**Focus:** GitHub/Vercel sync verification, deployment troubleshooting
+
+### Key Accomplishments
+
+#### 1. GitHub Repository Verification ✅
+**Verified local and remote are in sync:**
+- **Remote main:** `7d630e2` (Force redeploy with latest TankInputs)
+- **Local main:** `7d630e2` (matches remote)
+- **No differences:** `git diff main origin/main --stat` shows no changes
+
+#### 2. TankInputs.js Verification ✅
+**File on GitHub (origin/main):**
+- **Total lines:** 812 lines
+- **Version:** 1.2.0
+- **Features confirmed present:**
+  - FRP Metric Type 2 auto-selection (lines 16-21)
+  - Panel Type toggle (Metric/Imperial) - lines 176-195
+  - Panel Type Detail toggle (Type 1/Type 2) - lines 207-226
+  - Pipe Fittings & Accessories section
+  - MS/HDG Tank Finish dropdowns (BUG-008 fix)
+
+#### 3. page.js Verification ✅
+**Initial state on GitHub includes:**
+```javascript
+{
+  panelType: 'm',           // ✅ Metric default
+  panelTypeDetail: 1,       // ✅ Type 1 default
+  buildStandard: 'BSI',     // ✅ Default for steel (BUG-013 fix)
+  pipeFittings: []          // ✅ Pipe fittings array
+}
+```
+
+#### 4. Repository Structure Verified ✅
+**Root level structure (correct for Vercel):**
+```
+nennen123/sunnik-cal/
+├── .gitignore
+├── app/                    ← ✅ Next.js app at root (correct)
+│   └── calculator/
+│       └── components/
+│           └── TankInputs.js
+├── backups/
+├── docs/
+├── next.config.js
+├── package.json            ← ✅ At root level
+└── ...
+```
+
+#### 5. Force Redeploy Triggered ✅
+**Commit:** `7d630e2`
+- Added timestamp comment to trigger rebuild
+- Pushed to `origin/main`
+- Should trigger Vercel auto-deploy
+
+### Deployment Troubleshooting
+
+**If Vercel still shows old code:**
+1. Go to Vercel Dashboard → Your project → Deployments
+2. Click latest deployment → **Redeploy** → ✅ **Clear Build Cache**
+3. Verify correct branch (`main`) is connected in Vercel settings
+4. Check deployment logs for errors
+
+### Files Verified This Session
+
+| File | Lines | Status |
+|------|-------|--------|
+| `app/calculator/components/TankInputs.js` | 812 | ✅ Correct on GitHub |
+| `app/calculator/page.js` | 150+ | ✅ Correct on GitHub |
+| `package.json` | - | ✅ At root level |
+
+### Session Statistics
+- **Duration:** ~10 minutes
+- **Commands Run:** 8
+- **Issues Identified:** None - code is correct on GitHub
+- **Action Required:** Clear Vercel build cache if deployment not updating
+
+---
+
+*End of Session 6 Update*

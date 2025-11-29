@@ -32,12 +32,13 @@ export async function loadPrices() {
     const batchSize = 1000;
 
     while (hasMore) {
-      const { data, error } = await supabase
+      const { data, error, count } = await supabase
         .from('products')
-        .select('sku, market_final_price, is_available, description')
+        .select('sku, market_final_price, is_available, description', { count: 'exact' })
         .eq('is_available', true)
         .not('market_final_price', 'is', null)
         .gt('market_final_price', 0)
+        .order('sku', { ascending: true })
         .range(offset, offset + batchSize - 1);
 
       if (error) {
@@ -49,8 +50,8 @@ export async function loadPrices() {
         hasMore = false;
       } else {
         allData = allData.concat(data);
-        offset += batchSize;
-        hasMore = data.length === batchSize; // Continue if we got a full batch
+        offset += data.length;
+        hasMore = data.length === batchSize;
         console.log(`  📦 Loaded batch: ${allData.length} SKUs so far...`);
       }
     }
