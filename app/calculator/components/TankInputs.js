@@ -231,8 +231,14 @@ export default function TankInputs({ inputs, setInputs }) {
       {/* Tank Dimensions */}
       <div className="space-y-4">
         <h3 className="text-sm font-semibold text-gray-800 uppercase">
-          Tank Dimensions ({inputs.panelType === 'm' ? 'meters' : 'feet'})
+          Tank Dimensions (Panels)
         </h3>
+        <p className="text-xs text-gray-500">
+          {inputs.panelType === 'm'
+            ? `Actual size: ${inputs.length}m × ${inputs.width}m × ${inputs.height}m`
+            : `Actual size: ${(inputs.length * 1.22).toFixed(2)}m × ${(inputs.width * 1.22).toFixed(2)}m × ${(inputs.height * 1.22).toFixed(2)}m`
+          }
+        </p>
 
         {/* Length */}
         <div>
