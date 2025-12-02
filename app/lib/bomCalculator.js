@@ -1,6 +1,6 @@
 // app/lib/bomCalculator.js
 // Sunnik Tank BOM Calculation Engine
-// Version: 1.2.0
+// Version: 1.2.2
 // FIXED:
 // - BUG-005: FRP Panel Calculation
 // - BUG-006: Thickness code format (3.0mm → "3", not "30")
@@ -9,6 +9,9 @@
 // - NEW: Build standard-specific thickness (SANS vs BSI/LPCB)
 // - NEW: FRP build standard differences (MS1390 vs SS245)
 // - NEW: LPCB includes Vortex Pipe as standard
+// - BUG-014: Small tank handling (1×1, 2×2, etc. now calculate correctly)
+//   - 1×1×1 = 6 panels (was 14), 2×2×1 = 16 panels, 3×3×1 = 30 panels
+// - BUG-015: Partition main panels use Math.max(0,...) instead of Math.max(1,...)
 
 // ============================================
 // BUILD STANDARDS CONFIGURATION
@@ -94,6 +97,36 @@ function getThicknessCode(thickness) {
 function getDiameterForTier(tierIndex) {
   // Bottom tier (index 0) uses Ø18, all others use Ø14
   return tierIndex === 0 ? '18' : '14';
+}
+
+// ============================================
+// TANK SIZE CATEGORY HELPER (SMALL TANK FIX)
+// ============================================
+
+/**
+ * Get tank size category for panel calculation adjustments
+ * Small tanks need special handling to avoid over-counting panels
+ *
+ * @param {number} lengthPanels - Number of panels in length
+ * @param {number} widthPanels - Number of panels in width
+ * @returns {string} 'tiny' (1×N), 'small' (2×N), or 'normal' (3×3+)
+ */
+function getTankSizeCategory(lengthPanels, widthPanels) {
+  const minDim = Math.min(lengthPanels, widthPanels);
+  const maxDim = Math.max(lengthPanels, widthPanels);
+
+  // 1×N tanks (including 1×1)
+  if (minDim === 1) {
+    return 'tiny';
+  }
+
+  // 2×N tanks
+  if (minDim === 2) {
+    return 'small';
+  }
+
+  // 3×3 and larger
+  return 'normal';
 }
 
 // ============================================
@@ -335,6 +368,11 @@ export function calculateFRPBOM(inputs) {
   // Get build standard specific components
   const buildComponents = getFRPBuildStandardComponents(buildStandard);
 
+  // Get tank size category for small tank handling
+  const tankSizeCategory = getTankSizeCategory(lengthPanels, widthPanels);
+
+  console.log(`📐 FRP Tank size: ${lengthPanels}×${widthPanels} (${tankSizeCategory})`);
+
   const bom = {
     base: [],
     walls: [],
@@ -353,41 +391,71 @@ export function calculateFRPBOM(inputs) {
   };
 
   // ===========================
-  // BASE PANELS
+  // BASE PANELS (with small tank handling)
   // ===========================
 
-  // Main base panels (interior)
-  const interiorBaseCount = Math.max(0, (lengthPanels - 2) * (widthPanels - 2));
-  if (interiorBaseCount > 0) {
+  // Small tank handling for FRP base panels
+  if (tankSizeCategory === 'tiny') {
+    // 1×N tanks: simple base panels
     bom.base.push({
       sku: `3B${depthCode}-FRP`,
-      description: `FRP Base Panel B${depthCode} - Interior`,
-      quantity: interiorBaseCount,
+      description: `FRP Base Panel B${depthCode}`,
+      quantity: lengthPanels * widthPanels,
+      unitPrice: 0
+    });
+  } else if (tankSizeCategory === 'small') {
+    // 2×N tanks: 4 corners + edge panels
+    bom.base.push({
+      sku: `3B${depthCode}-FRP`,
+      description: `FRP Base Panel B${depthCode} - Corner`,
+      quantity: 4,
+      unitPrice: 0
+    });
+
+    const edgePanels = (lengthPanels * widthPanels) - 4;
+    if (edgePanels > 0) {
+      bom.base.push({
+        sku: `3B${depthCode}-FRP`,
+        description: `FRP Base Panel B${depthCode} - Edge`,
+        quantity: edgePanels,
+        unitPrice: 0
+      });
+    }
+  } else {
+    // Normal tanks (3×3+): Original logic
+    // Main base panels (interior)
+    const interiorBaseCount = Math.max(0, (lengthPanels - 2) * (widthPanels - 2));
+    if (interiorBaseCount > 0) {
+      bom.base.push({
+        sku: `3B${depthCode}-FRP`,
+        description: `FRP Base Panel B${depthCode} - Interior`,
+        quantity: interiorBaseCount,
+        unitPrice: 0
+      });
+    }
+
+    // Perimeter base panels (edges, not corners)
+    const perimeterEdgeCount = 2 * (lengthPanels - 2) + 2 * (widthPanels - 2);
+    if (perimeterEdgeCount > 0) {
+      bom.base.push({
+        sku: `3B${depthCode}-FRP`,
+        description: `FRP Base Panel B${depthCode} - Perimeter Edge`,
+        quantity: perimeterEdgeCount,
+        unitPrice: 0
+      });
+    }
+
+    // Corner base panels (4 corners)
+    bom.base.push({
+      sku: `3B${depthCode}-FRP`,
+      description: `FRP Base Panel B${depthCode} - Corner`,
+      quantity: 4,
       unitPrice: 0
     });
   }
 
-  // Perimeter base panels (edges, not corners)
-  const perimeterEdgeCount = 2 * (lengthPanels - 2) + 2 * (widthPanels - 2);
-  if (perimeterEdgeCount > 0) {
-    bom.base.push({
-      sku: `3B${depthCode}-FRP`,
-      description: `FRP Base Panel B${depthCode} - Perimeter Edge`,
-      quantity: perimeterEdgeCount,
-      unitPrice: 0
-    });
-  }
-
-  // Corner base panels (4 corners)
-  bom.base.push({
-    sku: `3B${depthCode}-FRP`,
-    description: `FRP Base Panel B${depthCode} - Corner`,
-    quantity: 4,
-    unitPrice: 0
-  });
-
-  // Partition base support (AB panels)
-  if (partitionCount > 0) {
+  // Partition base support (AB panels) - only for normal+ tanks
+  if (partitionCount > 0 && tankSizeCategory === 'normal') {
     const partitionBaseCount = partitionSpan * partitionCount;
     bom.base.push({
       sku: `3B${depthCode}-FRP-AB`,
@@ -398,7 +466,7 @@ export function calculateFRPBOM(inputs) {
   }
 
   // ===========================
-  // SIDEWALL PANELS
+  // SIDEWALL PANELS (with small tank handling)
   // ===========================
 
   // For each full 1m tier
@@ -406,42 +474,88 @@ export function calculateFRPBOM(inputs) {
     const tierDepthCode = getFRPDepthCode(height); // Use tank depth for all tiers
     const isBottomTier = (tier === 1);
 
-    // Main wall panels (not corners)
-    const mainWallCount = perimeter - 4;
-
-    if (isBottomTier) {
-      // Bottom tier uses Type B (structural)
+    // Small tank wall handling for FRP
+    if (tankSizeCategory === 'tiny') {
+      // 1×N tanks: perimeter walls only, no corner distinction
       bom.walls.push({
         sku: `3S${tierDepthCode}-FRP-B`,
-        description: `FRP Sidewall S${tierDepthCode}-B - Tier ${tier} (Structural)`,
-        quantity: mainWallCount,
+        description: `FRP Sidewall S${tierDepthCode}-B - Tier ${tier}`,
+        quantity: perimeter,
         unitPrice: 0
       });
-    } else {
-      // Upper tiers use Type A (standard)
+    } else if (tankSizeCategory === 'small') {
+      // 2×N tanks: 4 corners + edge walls
       bom.walls.push({
-        sku: `3S${tierDepthCode}-FRP-A`,
-        description: `FRP Sidewall S${tierDepthCode}-A - Tier ${tier}`,
-        quantity: mainWallCount,
+        sku: `3S${tierDepthCode}-FRP-BCL`,
+        description: `FRP Sidewall S${tierDepthCode}-BCL - Tier ${tier} Corner Left`,
+        quantity: 2,
+        unitPrice: 0
+      });
+
+      bom.walls.push({
+        sku: `3S${tierDepthCode}-FRP-BCR`,
+        description: `FRP Sidewall S${tierDepthCode}-BCR - Tier ${tier} Corner Right`,
+        quantity: 2,
+        unitPrice: 0
+      });
+
+      const edgeWalls = perimeter - 4;
+      if (edgeWalls > 0) {
+        if (isBottomTier) {
+          bom.walls.push({
+            sku: `3S${tierDepthCode}-FRP-B`,
+            description: `FRP Sidewall S${tierDepthCode}-B - Tier ${tier} (Structural)`,
+            quantity: edgeWalls,
+            unitPrice: 0
+          });
+        } else {
+          bom.walls.push({
+            sku: `3S${tierDepthCode}-FRP-A`,
+            description: `FRP Sidewall S${tierDepthCode}-A - Tier ${tier}`,
+            quantity: edgeWalls,
+            unitPrice: 0
+          });
+        }
+      }
+    } else {
+      // Normal tanks (3×3+): Original logic
+      // Main wall panels (not corners)
+      const mainWallCount = perimeter - 4;
+
+      if (isBottomTier) {
+        // Bottom tier uses Type B (structural)
+        bom.walls.push({
+          sku: `3S${tierDepthCode}-FRP-B`,
+          description: `FRP Sidewall S${tierDepthCode}-B - Tier ${tier} (Structural)`,
+          quantity: mainWallCount,
+          unitPrice: 0
+        });
+      } else {
+        // Upper tiers use Type A (standard)
+        bom.walls.push({
+          sku: `3S${tierDepthCode}-FRP-A`,
+          description: `FRP Sidewall S${tierDepthCode}-A - Tier ${tier}`,
+          quantity: mainWallCount,
+          unitPrice: 0
+        });
+      }
+
+      // Corner panels - BCL (Bottom Corner Left) × 2
+      bom.walls.push({
+        sku: `3S${tierDepthCode}-FRP-BCL`,
+        description: `FRP Sidewall S${tierDepthCode}-BCL - Tier ${tier} Corner Left`,
+        quantity: 2,
+        unitPrice: 0
+      });
+
+      // Corner panels - BCR (Bottom Corner Right) × 2
+      bom.walls.push({
+        sku: `3S${tierDepthCode}-FRP-BCR`,
+        description: `FRP Sidewall S${tierDepthCode}-BCR - Tier ${tier} Corner Right`,
+        quantity: 2,
         unitPrice: 0
       });
     }
-
-    // Corner panels - BCL (Bottom Corner Left) × 2
-    bom.walls.push({
-      sku: `3S${tierDepthCode}-FRP-BCL`,
-      description: `FRP Sidewall S${tierDepthCode}-BCL - Tier ${tier} Corner Left`,
-      quantity: 2,
-      unitPrice: 0
-    });
-
-    // Corner panels - BCR (Bottom Corner Right) × 2
-    bom.walls.push({
-      sku: `3S${tierDepthCode}-FRP-BCR`,
-      description: `FRP Sidewall S${tierDepthCode}-BCR - Tier ${tier} Corner Right`,
-      quantity: 2,
-      unitPrice: 0
-    });
   }
 
   // Half tier (if tank height has 0.5m component, e.g., 3.5m)
@@ -477,38 +591,65 @@ export function calculateFRPBOM(inputs) {
         unitPrice: 0
       });
 
-      // Partition main panels
-      const mainPartitionCount = Math.max(1, partitionSpan - 2) * partitionCount;
-      bom.partition.push({
-        sku: `3P${tierDepthCode}-FRP`,
-        description: `FRP Partition P${tierDepthCode} - Tier ${tier}`,
-        quantity: mainPartitionCount,
-        unitPrice: 0
-      });
+      // Partition main panels (only if partitionSpan > 2)
+      const mainPartitionCount = Math.max(0, partitionSpan - 2) * partitionCount;
+      if (mainPartitionCount > 0) {
+        bom.partition.push({
+          sku: `3P${tierDepthCode}-FRP`,
+          description: `FRP Partition P${tierDepthCode} - Tier ${tier}`,
+          quantity: mainPartitionCount,
+          unitPrice: 0
+        });
+      }
     }
   }
 
   // ===========================
-  // ROOF PANELS
+  // ROOF PANELS (with small tank handling)
   // ===========================
 
   const roofCount = lengthPanels * widthPanels;
 
-  // Main roof panels
-  bom.roof.push({
-    sku: `3R00-FRP`,
-    description: `FRP Roof Panel R00`,
-    quantity: roofCount - 2, // minus manholes
-    unitPrice: 0
-  });
+  // Small tank roof handling for FRP
+  if (tankSizeCategory === 'tiny' || tankSizeCategory === 'small') {
+    // Small tanks: minimal roof panels with 1 manhole
+    const manholeCount = roofCount <= 2 ? 1 : Math.min(2, roofCount - 1);
+    const mainRoofPanels = Math.max(0, roofCount - manholeCount);
 
-  // Manholes (standard 2 per tank)
-  bom.roof.push({
-    sku: `3MH-FRP`,
-    description: `FRP Manhole`,
-    quantity: 2,
-    unitPrice: 0
-  });
+    if (mainRoofPanels > 0) {
+      bom.roof.push({
+        sku: `3R00-FRP`,
+        description: `FRP Roof Panel R00`,
+        quantity: mainRoofPanels,
+        unitPrice: 0
+      });
+    }
+
+    // Manholes
+    bom.roof.push({
+      sku: `3MH-FRP`,
+      description: `FRP Manhole`,
+      quantity: manholeCount,
+      unitPrice: 0
+    });
+  } else {
+    // Normal tanks (3×3+): Original logic
+    // Main roof panels
+    bom.roof.push({
+      sku: `3R00-FRP`,
+      description: `FRP Roof Panel R00`,
+      quantity: roofCount - 2, // minus manholes
+      unitPrice: 0
+    });
+
+    // Manholes (standard 2 per tank)
+    bom.roof.push({
+      sku: `3MH-FRP`,
+      description: `FRP Manhole`,
+      quantity: 2,
+      unitPrice: 0
+    });
+  }
 
   // ===========================
   // BUILD STANDARD SPECIFIC ITEMS
@@ -798,44 +939,94 @@ export function calculateSteelBOM(inputs) {
   const baseDiameter = isType2 ? '18' : null;
 
   // ===========================
-  // BASE PANELS
+  // BASE PANELS (with small tank handling)
   // ===========================
 
   const baseThickness = thickness.base;
+  const tankSizeCategory = getTankSizeCategory(lengthPanels, widthPanels);
   const baseSKU = generateSteelSKU(typePrefix, 'B', baseThickness, panelType, materialCode, baseDiameter);
 
-  // Perimeter base panels
-  bom.base.push({
-    sku: baseSKU,
-    description: `Base Panel - ${baseThickness}mm${isType2 ? ' [Type 2]' : ''} (${buildStandard})`,
-    quantity: perimeter,
-    unitPrice: 0
-  });
+  console.log(`📐 Tank size: ${lengthPanels}×${widthPanels} (${tankSizeCategory})`);
 
-  // Corner panels
-  bom.base.push({
-    sku: generateSteelSKU(typePrefix, 'BCL', baseThickness, panelType, materialCode, baseDiameter),
-    description: `Base Corner Left - ${baseThickness}mm${isType2 ? ' [Type 2]' : ''}`,
-    quantity: 2,
-    unitPrice: 0
-  });
-
-  bom.base.push({
-    sku: generateSteelSKU(typePrefix, 'BCR', baseThickness, panelType, materialCode, baseDiameter),
-    description: `Base Corner Right - ${baseThickness}mm${isType2 ? ' [Type 2]' : ''}`,
-    quantity: 2,
-    unitPrice: 0
-  });
-
-  // Interior base panels
-  const interiorBaseCount = Math.max(0, (lengthPanels - 2) * (widthPanels - 2));
-  if (interiorBaseCount > 0) {
+  // Small tank handling: Adjust base panel counts to avoid over-counting
+  if (tankSizeCategory === 'tiny') {
+    // 1×N tanks: Only base panels, no corners needed (all edges are perimeter)
+    // 1×1 = 1 base panel, 1×2 = 2 base panels, etc.
     bom.base.push({
-      sku: generateSteelSKU(typePrefix, 'A', baseThickness, panelType, materialCode, baseDiameter),
-      description: `Interior Base Panel - ${baseThickness}mm${isType2 ? ' [Type 2]' : ''}`,
-      quantity: interiorBaseCount,
+      sku: baseSKU,
+      description: `Base Panel - ${baseThickness}mm${isType2 ? ' [Type 2]' : ''} (${buildStandard})`,
+      quantity: lengthPanels * widthPanels,
       unitPrice: 0
     });
+  } else if (tankSizeCategory === 'small') {
+    // 2×N tanks: 4 corners + edge panels only (no interior)
+    // 2×2 = 4 panels (all corners), 2×3 = 6 panels, 2×4 = 8 panels
+    bom.base.push({
+      sku: generateSteelSKU(typePrefix, 'BCL', baseThickness, panelType, materialCode, baseDiameter),
+      description: `Base Corner Left - ${baseThickness}mm${isType2 ? ' [Type 2]' : ''}`,
+      quantity: 2,
+      unitPrice: 0
+    });
+
+    bom.base.push({
+      sku: generateSteelSKU(typePrefix, 'BCR', baseThickness, panelType, materialCode, baseDiameter),
+      description: `Base Corner Right - ${baseThickness}mm${isType2 ? ' [Type 2]' : ''}`,
+      quantity: 2,
+      unitPrice: 0
+    });
+
+    // Edge panels (total - 4 corners)
+    const edgePanels = (lengthPanels * widthPanels) - 4;
+    if (edgePanels > 0) {
+      bom.base.push({
+        sku: baseSKU,
+        description: `Base Panel - ${baseThickness}mm${isType2 ? ' [Type 2]' : ''} (${buildStandard})`,
+        quantity: edgePanels,
+        unitPrice: 0
+      });
+    }
+  } else {
+    // Normal tanks (3×3+): Base = L×W panels
+    // 4 corners + edge panels (edges not corners) + interior panels
+    // Total should equal lengthPanels × widthPanels
+
+    // Corner panels (4 total: 2 BCL + 2 BCR)
+    bom.base.push({
+      sku: generateSteelSKU(typePrefix, 'BCL', baseThickness, panelType, materialCode, baseDiameter),
+      description: `Base Corner Left - ${baseThickness}mm${isType2 ? ' [Type 2]' : ''}`,
+      quantity: 2,
+      unitPrice: 0
+    });
+
+    bom.base.push({
+      sku: generateSteelSKU(typePrefix, 'BCR', baseThickness, panelType, materialCode, baseDiameter),
+      description: `Base Corner Right - ${baseThickness}mm${isType2 ? ' [Type 2]' : ''}`,
+      quantity: 2,
+      unitPrice: 0
+    });
+
+    // Edge panels (perimeter minus corners)
+    // Edges = 2*(L-2) + 2*(W-2) = perimeter - 4 - 4 = 2*(L+W) - 8
+    const edgeBaseCount = 2 * (lengthPanels - 2) + 2 * (widthPanels - 2);
+    if (edgeBaseCount > 0) {
+      bom.base.push({
+        sku: baseSKU,
+        description: `Base Panel - ${baseThickness}mm${isType2 ? ' [Type 2]' : ''} (${buildStandard})`,
+        quantity: edgeBaseCount,
+        unitPrice: 0
+      });
+    }
+
+    // Interior base panels
+    const interiorBaseCount = Math.max(0, (lengthPanels - 2) * (widthPanels - 2));
+    if (interiorBaseCount > 0) {
+      bom.base.push({
+        sku: generateSteelSKU(typePrefix, 'A', baseThickness, panelType, materialCode, baseDiameter),
+        description: `Interior Base Panel - ${baseThickness}mm${isType2 ? ' [Type 2]' : ''}`,
+        quantity: interiorBaseCount,
+        unitPrice: 0
+      });
+    }
   }
 
   // Partition base support
@@ -864,7 +1055,7 @@ export function calculateSteelBOM(inputs) {
   }
 
   // ===========================
-  // WALL PANELS (by tier)
+  // WALL PANELS (by tier, with small tank handling)
   // ===========================
 
   thickness.tiers.forEach((tier, index) => {
@@ -875,48 +1066,80 @@ export function calculateSteelBOM(inputs) {
     // Bottom tier (index 0) = Ø18, upper tiers = Ø14
     const tierDiameter = isType2 ? getDiameterForTier(index) : null;
 
-    if (isBottom) {
-      // Bottom tier corners
-      bom.walls.push({
-        sku: generateSteelSKU(typePrefix, 'B', tier.thickness, panelType, materialCode, tierDiameter),
-        description: `Wall Corner Bottom - Tier ${tier.height} - ${tier.thickness}mm${isType2 ? ` [Ø${tierDiameter}]` : ''} (${buildStandard})`,
-        quantity: 4,
-        unitPrice: 0
-      });
-
-      // Bottom tier main walls
-      bom.walls.push({
-        sku: generateSteelSKU(typePrefix, tier.code, tier.thickness, panelType, materialCode, tierDiameter),
-        description: `Wall Panel - Tier ${tier.height} - ${tier.thickness}mm${isType2 ? ` [Ø${tierDiameter}]` : ''} (${buildStandard})`,
-        quantity: perimeter - 4,
-        unitPrice: 0
-      });
-
-    } else if (isTop) {
-      // Top tier corners
-      bom.walls.push({
-        sku: generateSteelSKU(typePrefix, tier.code, tier.thickness, panelType, materialCode, tierDiameter),
-        description: `Wall Corner Top - Tier ${tier.height} - ${tier.thickness}mm${isType2 ? ` [Ø${tierDiameter}]` : ''} (${buildStandard})`,
-        quantity: 4,
-        unitPrice: 0
-      });
-
-      // Top tier main walls
-      bom.walls.push({
-        sku: generateSteelSKU(typePrefix, 'B', tier.thickness, panelType, materialCode, tierDiameter),
-        description: `Wall Panel Top - Tier ${tier.height} - ${tier.thickness}mm${isType2 ? ` [Ø${tierDiameter}]` : ''} (${buildStandard})`,
-        quantity: perimeter - 4,
-        unitPrice: 0
-      });
-
-    } else {
-      // Middle tiers - all A panels
+    // Small tank wall handling
+    if (tankSizeCategory === 'tiny') {
+      // 1×N tanks: perimeter walls only, no corner distinction
+      // 1×1 = 4 walls, 1×2 = 6 walls, etc.
       bom.walls.push({
         sku: generateSteelSKU(typePrefix, tier.code, tier.thickness, panelType, materialCode, tierDiameter),
         description: `Wall Panel - Tier ${tier.height} - ${tier.thickness}mm${isType2 ? ` [Ø${tierDiameter}]` : ''} (${buildStandard})`,
         quantity: perimeter,
         unitPrice: 0
       });
+    } else if (tankSizeCategory === 'small') {
+      // 2×N tanks: 4 corners + edge walls
+      // 2×2 = 4 corners + 4 edges = 8 walls per tier
+      bom.walls.push({
+        sku: generateSteelSKU(typePrefix, 'B', tier.thickness, panelType, materialCode, tierDiameter),
+        description: `Wall Corner - Tier ${tier.height} - ${tier.thickness}mm${isType2 ? ` [Ø${tierDiameter}]` : ''} (${buildStandard})`,
+        quantity: 4,
+        unitPrice: 0
+      });
+
+      const edgeWalls = perimeter - 4;
+      if (edgeWalls > 0) {
+        bom.walls.push({
+          sku: generateSteelSKU(typePrefix, tier.code, tier.thickness, panelType, materialCode, tierDiameter),
+          description: `Wall Panel - Tier ${tier.height} - ${tier.thickness}mm${isType2 ? ` [Ø${tierDiameter}]` : ''} (${buildStandard})`,
+          quantity: edgeWalls,
+          unitPrice: 0
+        });
+      }
+    } else {
+      // Normal tanks (3×3+): Original logic
+      if (isBottom) {
+        // Bottom tier corners
+        bom.walls.push({
+          sku: generateSteelSKU(typePrefix, 'B', tier.thickness, panelType, materialCode, tierDiameter),
+          description: `Wall Corner Bottom - Tier ${tier.height} - ${tier.thickness}mm${isType2 ? ` [Ø${tierDiameter}]` : ''} (${buildStandard})`,
+          quantity: 4,
+          unitPrice: 0
+        });
+
+        // Bottom tier main walls
+        bom.walls.push({
+          sku: generateSteelSKU(typePrefix, tier.code, tier.thickness, panelType, materialCode, tierDiameter),
+          description: `Wall Panel - Tier ${tier.height} - ${tier.thickness}mm${isType2 ? ` [Ø${tierDiameter}]` : ''} (${buildStandard})`,
+          quantity: perimeter - 4,
+          unitPrice: 0
+        });
+
+      } else if (isTop) {
+        // Top tier corners
+        bom.walls.push({
+          sku: generateSteelSKU(typePrefix, tier.code, tier.thickness, panelType, materialCode, tierDiameter),
+          description: `Wall Corner Top - Tier ${tier.height} - ${tier.thickness}mm${isType2 ? ` [Ø${tierDiameter}]` : ''} (${buildStandard})`,
+          quantity: 4,
+          unitPrice: 0
+        });
+
+        // Top tier main walls
+        bom.walls.push({
+          sku: generateSteelSKU(typePrefix, 'B', tier.thickness, panelType, materialCode, tierDiameter),
+          description: `Wall Panel Top - Tier ${tier.height} - ${tier.thickness}mm${isType2 ? ` [Ø${tierDiameter}]` : ''} (${buildStandard})`,
+          quantity: perimeter - 4,
+          unitPrice: 0
+        });
+
+      } else {
+        // Middle tiers - all A panels
+        bom.walls.push({
+          sku: generateSteelSKU(typePrefix, tier.code, tier.thickness, panelType, materialCode, tierDiameter),
+          description: `Wall Panel - Tier ${tier.height} - ${tier.thickness}mm${isType2 ? ` [Ø${tierDiameter}]` : ''} (${buildStandard})`,
+          quantity: perimeter,
+          unitPrice: 0
+        });
+      }
     }
   });
 
@@ -940,19 +1163,21 @@ export function calculateSteelBOM(inputs) {
         unitPrice: 0
       });
 
-      // Main partition panels (B¢)
-      const mainPartitionPanels = Math.max(1, partitionSpan - 2);
-      bom.partition.push({
-        sku: `1B¢${thicknessCode}-${panelType}-${materialCode}`,
-        description: `Partition Wall - Tier ${tier.height} - ${tier.thickness}mm`,
-        quantity: mainPartitionPanels * partitionCount,
-        unitPrice: 0
-      });
+      // Main partition panels (B¢) - only if partitionSpan > 2
+      const mainPartitionPanels = Math.max(0, partitionSpan - 2);
+      if (mainPartitionPanels > 0) {
+        bom.partition.push({
+          sku: `1B¢${thicknessCode}-${panelType}-${materialCode}`,
+          description: `Partition Wall - Tier ${tier.height} - ${tier.thickness}mm`,
+          quantity: mainPartitionPanels * partitionCount,
+          unitPrice: 0
+        });
+      }
     });
   }
 
   // ===========================
-  // ROOF PANELS
+  // ROOF PANELS (with small tank handling)
   // ===========================
 
   // Roof panels use Type 1 format regardless of steelType
@@ -960,28 +1185,55 @@ export function calculateSteelBOM(inputs) {
   const roofCount = lengthPanels * widthPanels;
   const roofThicknessCode = getThicknessCode(roofThickness);
 
-  bom.roof.push({
-    sku: `1R${roofThicknessCode}-${panelType}-${materialCode}`,
-    description: `Roof Panel - ${roofThickness}mm`,
-    quantity: roofCount - 4, // Main panels minus special panels
-    unitPrice: 0
-  });
+  // Small tank roof handling
+  if (tankSizeCategory === 'tiny' || tankSizeCategory === 'small') {
+    // Small tanks: roof = base area (L×W panels)
+    // Just use standard roof panels + 1 manhole
+    // Total roof panels = roofCount (all standard, 1 is a manhole)
+    const manholeQty = 1; // Always 1 manhole for small tanks
+    const mainRoofPanels = Math.max(0, roofCount - manholeQty);
 
-  // Air vents
-  bom.roof.push({
-    sku: `1R(AV)${roofThicknessCode}-${panelType}-${materialCode}`,
-    description: `Roof Air Vent - ${roofThickness}mm`,
-    quantity: 2,
-    unitPrice: 0
-  });
+    if (mainRoofPanels > 0) {
+      bom.roof.push({
+        sku: `1R${roofThicknessCode}-${panelType}-${materialCode}`,
+        description: `Roof Panel - ${roofThickness}mm`,
+        quantity: mainRoofPanels,
+        unitPrice: 0
+      });
+    }
 
-  // Manholes
-  bom.roof.push({
-    sku: `1MH${roofThicknessCode}-${panelType}-${materialCode}`,
-    description: `Manhole - ${roofThickness}mm`,
-    quantity: 2,
-    unitPrice: 0
-  });
+    // Manhole (always 1 for small tanks)
+    bom.roof.push({
+      sku: `1MH${roofThicknessCode}-${panelType}-${materialCode}`,
+      description: `Manhole - ${roofThickness}mm`,
+      quantity: manholeQty,
+      unitPrice: 0
+    });
+  } else {
+    // Normal tanks (3×3+): Original logic
+    bom.roof.push({
+      sku: `1R${roofThicknessCode}-${panelType}-${materialCode}`,
+      description: `Roof Panel - ${roofThickness}mm`,
+      quantity: roofCount - 4, // Main panels minus special panels
+      unitPrice: 0
+    });
+
+    // Air vents
+    bom.roof.push({
+      sku: `1R(AV)${roofThicknessCode}-${panelType}-${materialCode}`,
+      description: `Roof Air Vent - ${roofThickness}mm`,
+      quantity: 2,
+      unitPrice: 0
+    });
+
+    // Manholes
+    bom.roof.push({
+      sku: `1MH${roofThicknessCode}-${panelType}-${materialCode}`,
+      description: `Manhole - ${roofThickness}mm`,
+      quantity: 2,
+      unitPrice: 0
+    });
+  }
 
   // ===========================
   // SUPPORT STRUCTURES
