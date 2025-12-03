@@ -1,6 +1,6 @@
 // app/lib/bomCalculator.js
 // Sunnik Tank BOM Calculation Engine
-// Version: 1.2.2
+// Version: 1.3.0
 // FIXED:
 // - BUG-005: FRP Panel Calculation
 // - BUG-006: Thickness code format (3.0mm → "3", not "30")
@@ -127,6 +127,80 @@ function getTankSizeCategory(lengthPanels, widthPanels) {
 
   // 3×3 and larger
   return 'normal';
+}
+
+// ============================================
+// ROOF SUPPORT HELPER FUNCTIONS
+// ============================================
+
+/**
+ * Get RTS (Roof Tie Support) quantity based on tank dimensions
+ * RTS are installed at regular intervals across the roof
+ * Rule: 1 RTS per 2 panels in the shorter dimension, minimum 2
+ *
+ * @param {number} lengthPanels - Number of panels in length
+ * @param {number} widthPanels - Number of panels in width
+ * @returns {number} Number of RTS required
+ */
+function getRTSQuantity(lengthPanels, widthPanels) {
+  const shorterDim = Math.min(lengthPanels, widthPanels);
+  // 1 RTS per 2 panels, minimum 2 for tanks >= 3 panels
+  if (shorterDim < 3) return 0; // Small tanks don't need RTS
+  return Math.max(2, Math.ceil(shorterDim / 2));
+}
+
+/**
+ * Get OP Truss size based on span (shorter tank dimension)
+ * Larger spans require larger truss sections
+ *
+ * @param {number} spanPanels - Number of panels to span
+ * @param {string} panelType - 'm' (metric 1.0m) or 'i' (imperial 1.22m/4ft)
+ * @returns {string} Truss size code (e.g., "100x50", "150x75")
+ */
+function getOPTrussSize(spanPanels, panelType) {
+  const panelSize = panelType === 'm' ? 1.0 : 1.22;
+  const spanMeters = spanPanels * panelSize;
+
+  // Size based on span length
+  if (spanMeters <= 3) return '100x50';
+  if (spanMeters <= 5) return '125x65';
+  if (spanMeters <= 7) return '150x75';
+  return '200x100'; // Large spans
+}
+
+/**
+ * Get RTS height based on tank height
+ * RTS height matches the internal height of the tank
+ *
+ * @param {number} heightMeters - Tank height in meters
+ * @param {string} panelType - 'm' (metric) or 'i' (imperial)
+ * @returns {string} Height code for SKU (e.g., "30M", "12ft")
+ */
+function getRTSHeight(heightMeters, panelType) {
+  if (panelType === 'i') {
+    // Imperial: convert to feet
+    const heightFeet = Math.round(heightMeters * 3.28084);
+    return `${heightFeet}ft`;
+  }
+  // Metric: round to nearest 0.5m and format
+  const rounded = Math.round(heightMeters * 2) / 2;
+  const code = Math.round(rounded * 10);
+  return `${code}M`;
+}
+
+/**
+ * Get purlin quantity based on OP truss count and tank length
+ * Purlins run perpendicular to trusses, connecting them
+ * Rule: 3 purlins per truss (attached to each truss)
+ *
+ * @param {number} opTrussCount - Number of OP trusses
+ * @param {number} lengthPanels - Tank length in panels
+ * @returns {number} Number of purlins required
+ */
+function getPurlinQuantity(opTrussCount, lengthPanels) {
+  if (opTrussCount < 2) return 0;
+  // 3 purlins per truss
+  return opTrussCount * 3;
 }
 
 // ============================================
@@ -378,6 +452,7 @@ export function calculateFRPBOM(inputs) {
     walls: [],
     partition: [],
     roof: [],
+    roofSupport: [],
     supports: [],
     accessories: [],
     pipeFittings: [],
@@ -652,6 +727,37 @@ export function calculateFRPBOM(inputs) {
   }
 
   // ===========================
+  // ROOF SUPPORT (FRP)
+  // ===========================
+
+  // FRP roof support uses ABS or UPVC supports based on build standard
+  // Only needed for tanks 3×3 and larger
+  if (tankSizeCategory === 'normal') {
+    // Roof support material based on build standard
+    const roofSupportMaterial = buildStandard === 'SS245' ? 'UPVC' : 'ABS';
+
+    // ABS/UPVC Roof Support Beams - span the shorter dimension
+    const roofSupportQty = Math.max(2, Math.floor(lengthPanels / 2));
+    bom.roofSupport.push({
+      sku: `ROOF-SUPPORT-${roofSupportMaterial}-${widthPanels}M`,
+      description: `${roofSupportMaterial} Roof Support Beam - ${widthPanels}m span`,
+      quantity: roofSupportQty,
+      unitPrice: 0
+    });
+
+    // Plate Brackets - connect roof supports to roof panels
+    const plateBracketQty = roofSupportQty * 2; // 2 brackets per support beam
+    bom.roofSupport.push({
+      sku: `PLATE-BRACKET-${roofSupportMaterial}`,
+      description: `${roofSupportMaterial} Plate Bracket`,
+      quantity: plateBracketQty,
+      unitPrice: 0
+    });
+
+    console.log(`   → FRP Roof Support: ${roofSupportQty}× ${roofSupportMaterial} beams, ${plateBracketQty}× brackets`);
+  }
+
+  // ===========================
   // BUILD STANDARD SPECIFIC ITEMS
   // ===========================
 
@@ -795,7 +901,7 @@ export function calculateFRPBOM(inputs) {
   // ===========================
 
   const allPanelItems = [...bom.base, ...bom.walls, ...bom.partition, ...bom.roof];
-  const allItems = [...allPanelItems, ...bom.supports, ...bom.accessories, ...bom.pipeFittings];
+  const allItems = [...allPanelItems, ...bom.roofSupport, ...bom.supports, ...bom.accessories, ...bom.pipeFittings];
 
   bom.summary.totalPanels = allPanelItems.reduce((sum, item) => sum + item.quantity, 0);
   bom.summary.totalCost = allItems.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
@@ -917,6 +1023,7 @@ export function calculateSteelBOM(inputs) {
     walls: [],
     partition: [],
     roof: [],
+    roofSupport: [],
     supports: [],
     accessories: [],
     pipeFittings: [],
@@ -1236,6 +1343,55 @@ export function calculateSteelBOM(inputs) {
   }
 
   // ===========================
+  // ROOF SUPPORT (Steel)
+  // ===========================
+
+  // Steel roof support: OP Truss, Purlins, RTS (Roof Tie Support)
+  // Only for normal tanks (3×3+)
+  if (tankSizeCategory === 'normal') {
+    // Calculate spans - trusses span the shorter dimension
+    const trussSpan = Math.min(lengthPanels, widthPanels);
+    const trussLength = Math.max(lengthPanels, widthPanels);
+
+    // OP Truss - main structural supports spanning the tank
+    // Rule: 1 truss per 3 panels of length, minimum 2
+    const opTrussCount = Math.max(2, Math.ceil(trussLength / 3));
+    const trussSize = getOPTrussSize(trussSpan, panelType);
+
+    bom.roofSupport.push({
+      sku: `OP-TRUSS-${trussSize}-${materialCode}`,
+      description: `OP Truss ${trussSize} - ${material}`,
+      quantity: opTrussCount,
+      unitPrice: 0
+    });
+
+    // Purlins - run perpendicular to trusses, 3 per bay
+    const purlinCount = getPurlinQuantity(opTrussCount, trussLength);
+    if (purlinCount > 0) {
+      bom.roofSupport.push({
+        sku: `PURLIN-${materialCode}`,
+        description: `Purlin - ${material}`,
+        quantity: purlinCount,
+        unitPrice: 0
+      });
+    }
+
+    // RTS (Roof Tie Support) - vertical supports from roof to internal structure
+    const rtsCount = getRTSQuantity(lengthPanels, widthPanels);
+    if (rtsCount > 0) {
+      const rtsHeightCode = getRTSHeight(height, panelType);
+      bom.roofSupport.push({
+        sku: `RTS-${rtsHeightCode}-${materialCode}`,
+        description: `Roof Tie Support ${rtsHeightCode} - ${material}`,
+        quantity: rtsCount,
+        unitPrice: 0
+      });
+    }
+
+    console.log(`   → Roof Support: ${opTrussCount}× OP Truss (${trussSize}), ${purlinCount}× Purlins, ${rtsCount}× RTS`);
+  }
+
+  // ===========================
   // SUPPORT STRUCTURES
   // ===========================
 
@@ -1438,7 +1594,7 @@ export function calculateSteelBOM(inputs) {
   // ===========================
 
   const allPanelItems = [...bom.base, ...bom.walls, ...bom.partition, ...bom.roof];
-  const allItems = [...allPanelItems, ...bom.supports, ...bom.accessories, ...bom.pipeFittings];
+  const allItems = [...allPanelItems, ...bom.roofSupport, ...bom.supports, ...bom.accessories, ...bom.pipeFittings];
 
   bom.summary.totalPanels = allPanelItems.reduce((sum, item) => sum + item.quantity, 0);
   bom.summary.totalCost = allItems.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);

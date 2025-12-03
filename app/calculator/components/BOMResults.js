@@ -1,5 +1,6 @@
 // app/calculator/components/BOMResults.js
-// Updated: v1.2.0 - Added supports, accessories, and pipe fittings sections
+// Updated: v1.3.0 - Added roofSupport section (OP Truss, Purlins, RTS)
+// v1.2.0 - Added supports, accessories, and pipe fittings sections
 // Fixed BUG-009: Pipe fittings and accessories now display in app
 
 export default function BOMResults({ bom }) {
@@ -13,6 +14,8 @@ export default function BOMResults({ bom }) {
     partitionHeader: 'bg-yellow-100 text-yellow-800',
     roof: 'bg-red-50 border-red-300',
     roofHeader: 'bg-red-100 text-red-800',
+    roofSupport: 'bg-pink-50 border-pink-300',
+    roofSupportHeader: 'bg-pink-100 text-pink-800',
     supports: 'bg-purple-50 border-purple-300',
     supportsHeader: 'bg-purple-100 text-purple-800',
     accessories: 'bg-cyan-50 border-cyan-300',
@@ -91,13 +94,14 @@ export default function BOMResults({ bom }) {
   const wallsTotal = calculateSectionTotal(bom.walls);
   const partitionTotal = calculateSectionTotal(bom.partition);
   const roofTotal = calculateSectionTotal(bom.roof);
+  const roofSupportTotal = calculateSectionTotal(bom.roofSupport);
   const supportsTotal = calculateSectionTotal(bom.supports);
   const accessoriesTotal = calculateSectionTotal(bom.accessories);
   const pipeFittingsTotal = calculateSectionTotal(bom.pipeFittings);
 
   // Grand total from all sections
   const calculatedTotal = baseTotal + wallsTotal + partitionTotal + roofTotal +
-                          supportsTotal + accessoriesTotal + pipeFittingsTotal;
+                          roofSupportTotal + supportsTotal + accessoriesTotal + pipeFittingsTotal;
 
   // Use BOM summary total if available, otherwise use calculated
   const grandTotal = bom.summary?.totalCost || calculatedTotal;
@@ -109,6 +113,7 @@ export default function BOMResults({ bom }) {
     ...(bom.walls || []),
     ...(bom.partition || []),
     ...(bom.roof || []),
+    ...(bom.roofSupport || []),
     ...(bom.supports || []),
     ...(bom.accessories || []),
     ...(bom.pipeFittings || [])
@@ -127,6 +132,7 @@ export default function BOMResults({ bom }) {
               bom.walls?.length > 0,
               bom.partition?.length > 0,
               bom.roof?.length > 0,
+              bom.roofSupport?.length > 0,
               bom.supports?.length > 0,
               bom.accessories?.length > 0,
               bom.pipeFittings?.length > 0
@@ -148,6 +154,7 @@ export default function BOMResults({ bom }) {
       {renderSection('WALL PANELS', bom.walls, 'walls')}
       {renderSection('PARTITION PANELS', bom.partition, 'partition')}
       {renderSection('ROOF PANELS', bom.roof, 'roof')}
+      {renderSection('ROOF SUPPORT', bom.roofSupport, 'roofSupport')}
       {renderSection('SUPPORT STRUCTURES', bom.supports, 'supports')}
       {renderSection('ACCESSORIES', bom.accessories, 'accessories')}
       {renderSection('PIPE FITTINGS', bom.pipeFittings, 'pipeFittings')}
