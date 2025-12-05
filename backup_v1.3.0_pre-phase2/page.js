@@ -1,9 +1,9 @@
 'use client';
 
 // app/calculator/page.js
-// Version: 2.0.0
-// Updated: Phase 2 - Added partitionPositions state, stays/cleats price application
-// Preserved: All v1.2.2 functionality (Supabase pricing, buildStandard, etc.)
+// Version: 1.2.2
+// FIXED: Added buildStandard to initial state (BUG-013 fix)
+// Updated to use Supabase instead of CSV for pricing
 
 import { useState, useEffect } from 'react';
 import { calculateBOM } from '../lib/bomCalculator';
@@ -21,12 +21,8 @@ export default function CalculatorPage() {
     panelType: 'm',
     panelTypeDetail: 1,  // Type 1 or Type 2
     material: 'SS316',
-    buildStandard: 'BSI',  // Default build standard for steel
-    // Phase 2: Partition configuration
+    buildStandard: 'BSI',  // ← ADDED: Default build standard for steel (BUG-013 fix)
     partitionCount: 0,
-    partitionDirection: 'width',  // 'width' or 'length'
-    partitionPositions: null,  // Array of panel positions (null = auto-distribute)
-    // Existing fields
     roofThickness: 1.5,
     internalSupport: false,
     externalSupport: false,
@@ -85,10 +81,6 @@ export default function CalculatorPage() {
       // DEBUG: Log buildStandard to verify it's being passed correctly
       console.log('🔧 Calculating BOM with inputs:', inputs);
       console.log('🔧 buildStandard value:', inputs.buildStandard);
-      console.log('🔧 panelTypeDetail (Type 1/2):', inputs.panelTypeDetail);
-      console.log('🔧 partitionCount:', inputs.partitionCount);
-      console.log('🔧 partitionDirection:', inputs.partitionDirection);
-      console.log('🔧 partitionPositions:', inputs.partitionPositions);
 
       // Calculate BOM structure
       const result = calculateBOM(inputs);
@@ -111,14 +103,7 @@ export default function CalculatorPage() {
       result.partition = applyPrices(result.partition || []);
       result.roof = applyPrices(result.roof);
 
-      // Apply prices to roof support
-      result.roofSupport = applyPrices(result.roofSupport || []);
-
-      // Phase 2: Apply prices to stays and cleats
-      result.stays = applyPrices(result.stays || []);
-      result.cleats = applyPrices(result.cleats || []);
-
-      // Apply prices to supports, accessories, and pipe fittings
+      // FIXED: Also apply prices to supports and accessories
       result.supports = applyPrices(result.supports || []);
       result.accessories = applyPrices(result.accessories || []);
       result.pipeFittings = applyPrices(result.pipeFittings || []);
@@ -133,9 +118,6 @@ export default function CalculatorPage() {
 
       const allItems = [
         ...allPanels,
-        ...(result.roofSupport || []),
-        ...(result.stays || []),
-        ...(result.cleats || []),
         ...(result.supports || []),
         ...(result.accessories || []),
         ...(result.pipeFittings || [])
@@ -149,13 +131,10 @@ export default function CalculatorPage() {
         totalPanels: result.summary.totalPanels,
         totalCost: result.summary.totalCost.toFixed(2),
         buildStandard: inputs.buildStandard,
-        panelTypeDetail: inputs.panelTypeDetail,
         basePanels: result.base.length,
         wallPanels: result.walls.length,
-        partitionPanels: result.partition?.length || 0,
-        roofPanels: result.roof.length,
-        stayItems: result.stays?.length || 0,
-        cleatItems: result.cleats?.length || 0
+        partitionPanels: result.partition.length,
+        roofPanels: result.roof.length
       });
 
       // Check for placeholder prices (debugging)
@@ -164,13 +143,6 @@ export default function CalculatorPage() {
         console.warn(`⚠️  ${placeholderItems.length} items using placeholder prices:`,
           placeholderItems.map(i => i.sku)
         );
-      }
-
-      // Check for zero-priced stay/cleat items (expected until SKUs added)
-      const zeroPricedStays = [...(result.stays || []), ...(result.cleats || [])]
-        .filter(item => item.unitPrice === 0);
-      if (zeroPricedStays.length > 0) {
-        console.info(`ℹ️ ${zeroPricedStays.length} stay/cleat items at RM 0.00 (SKUs pending database)`);
       }
 
       setBOM(result);
@@ -191,12 +163,8 @@ export default function CalculatorPage() {
       panelType: 'm',
       panelTypeDetail: 1,
       material: 'SS316',
-      buildStandard: 'BSI',
-      // Phase 2: Reset partition config
+      buildStandard: 'BSI',  // ← ADDED: Reset includes buildStandard (BUG-013 fix)
       partitionCount: 0,
-      partitionDirection: 'width',
-      partitionPositions: null,
-      // Existing
       roofThickness: 1.5,
       internalSupport: false,
       externalSupport: false,
@@ -348,4 +316,3 @@ export default function CalculatorPage() {
     </div>
   );
 }
-// Version 2.0.0 - Phase 2: Stay System Support

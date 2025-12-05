@@ -1,7 +1,7 @@
 // app/calculator/components/BOMResults.js
-// Version: 2.0.0
-// Updated: Phase 2 - Added stays and cleats sections
-// Preserved: All v1.3.0 functionality (roofSupport, supports, accessories, pipeFittings)
+// Updated: v1.3.0 - Added roofSupport section (OP Truss, Purlins, RTS)
+// v1.2.0 - Added supports, accessories, and pipe fittings sections
+// Fixed BUG-009: Pipe fittings and accessories now display in app
 
 export default function BOMResults({ bom }) {
   // Section color scheme (matching PDF)
@@ -16,14 +16,8 @@ export default function BOMResults({ bom }) {
     roofHeader: 'bg-red-100 text-red-800',
     roofSupport: 'bg-pink-50 border-pink-300',
     roofSupportHeader: 'bg-pink-100 text-pink-800',
-    // NEW: Stay system colors (Phase 2)
-    stays: 'bg-purple-50 border-purple-300',
-    staysHeader: 'bg-purple-100 text-purple-800',
-    cleats: 'bg-indigo-50 border-indigo-300',
-    cleatsHeader: 'bg-indigo-100 text-indigo-800',
-    // Existing
-    supports: 'bg-violet-50 border-violet-300',
-    supportsHeader: 'bg-violet-100 text-violet-800',
+    supports: 'bg-purple-50 border-purple-300',
+    supportsHeader: 'bg-purple-100 text-purple-800',
     accessories: 'bg-cyan-50 border-cyan-300',
     accessoriesHeader: 'bg-cyan-100 text-cyan-800',
     pipeFittings: 'bg-orange-50 border-orange-300',
@@ -101,18 +95,13 @@ export default function BOMResults({ bom }) {
   const partitionTotal = calculateSectionTotal(bom.partition);
   const roofTotal = calculateSectionTotal(bom.roof);
   const roofSupportTotal = calculateSectionTotal(bom.roofSupport);
-  // NEW: Stay system totals (Phase 2)
-  const staysTotal = calculateSectionTotal(bom.stays);
-  const cleatsTotal = calculateSectionTotal(bom.cleats);
-  // Existing
   const supportsTotal = calculateSectionTotal(bom.supports);
   const accessoriesTotal = calculateSectionTotal(bom.accessories);
   const pipeFittingsTotal = calculateSectionTotal(bom.pipeFittings);
 
-  // Grand total from all sections (including stays and cleats)
+  // Grand total from all sections
   const calculatedTotal = baseTotal + wallsTotal + partitionTotal + roofTotal +
-                          roofSupportTotal + staysTotal + cleatsTotal +
-                          supportsTotal + accessoriesTotal + pipeFittingsTotal;
+                          roofSupportTotal + supportsTotal + accessoriesTotal + pipeFittingsTotal;
 
   // Use BOM summary total if available, otherwise use calculated
   const grandTotal = bom.summary?.totalCost || calculatedTotal;
@@ -125,26 +114,10 @@ export default function BOMResults({ bom }) {
     ...(bom.partition || []),
     ...(bom.roof || []),
     ...(bom.roofSupport || []),
-    ...(bom.stays || []),
-    ...(bom.cleats || []),
     ...(bom.supports || []),
     ...(bom.accessories || []),
     ...(bom.pipeFittings || [])
   ].length;
-
-  // Count active sections
-  const activeSections = [
-    bom.base?.length > 0,
-    bom.walls?.length > 0,
-    bom.partition?.length > 0,
-    bom.roof?.length > 0,
-    bom.roofSupport?.length > 0,
-    bom.stays?.length > 0,
-    bom.cleats?.length > 0,
-    bom.supports?.length > 0,
-    bom.accessories?.length > 0,
-    bom.pipeFittings?.length > 0
-  ].filter(Boolean).length;
 
   return (
     <div className="bg-white rounded-lg shadow-md p-6">
@@ -154,7 +127,16 @@ export default function BOMResults({ bom }) {
             Bill of Materials
           </h2>
           <p className="text-sm text-gray-500 mt-1">
-            {totalLineItems} line items across {activeSections} sections
+            {totalLineItems} line items across {[
+              bom.base?.length > 0,
+              bom.walls?.length > 0,
+              bom.partition?.length > 0,
+              bom.roof?.length > 0,
+              bom.roofSupport?.length > 0,
+              bom.supports?.length > 0,
+              bom.accessories?.length > 0,
+              bom.pipeFittings?.length > 0
+            ].filter(Boolean).length} sections
           </p>
         </div>
       </div>
@@ -173,12 +155,6 @@ export default function BOMResults({ bom }) {
       {renderSection('PARTITION PANELS', bom.partition, 'partition')}
       {renderSection('ROOF PANELS', bom.roof, 'roof')}
       {renderSection('ROOF SUPPORT', bom.roofSupport, 'roofSupport')}
-
-      {/* NEW: Stay System Sections (Phase 2) */}
-      {renderSection('STAY SYSTEM', bom.stays, 'stays')}
-      {renderSection('CLEATS & CONNECTIONS', bom.cleats, 'cleats')}
-
-      {/* Existing sections */}
       {renderSection('SUPPORT STRUCTURES', bom.supports, 'supports')}
       {renderSection('ACCESSORIES', bom.accessories, 'accessories')}
       {renderSection('PIPE FITTINGS', bom.pipeFittings, 'pipeFittings')}
@@ -201,13 +177,6 @@ export default function BOMResults({ bom }) {
           <div className="bg-red-50 border border-red-200 rounded-lg p-3">
             <div className="text-xs text-red-600 font-medium">Roof Panels</div>
             <div className="text-lg font-bold text-red-800">RM {roofTotal.toFixed(0)}</div>
-          </div>
-        )}
-        {/* NEW: Stay system summary card */}
-        {(staysTotal + cleatsTotal) > 0 && (
-          <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
-            <div className="text-xs text-purple-600 font-medium">Stay System</div>
-            <div className="text-lg font-bold text-purple-800">RM {(staysTotal + cleatsTotal).toFixed(0)}</div>
           </div>
         )}
         {accessoriesTotal > 0 && (
@@ -237,16 +206,6 @@ export default function BOMResults({ bom }) {
         </div>
       </div>
 
-      {/* Stay System Info Note (NEW) */}
-      {bom.stays && bom.stays.length > 0 && (
-        <div className="mt-6 bg-purple-50 border border-purple-200 rounded-lg p-4">
-          <p className="text-sm text-purple-800">
-            <strong>🔧 Stay System Included:</strong> Internal stay components for structural support.
-            {staysTotal === 0 && ' Prices shown as RM 0.00 - SKUs pending database update.'}
-          </p>
-        </div>
-      )}
-
       {/* Info Note */}
       {(!bom.supports || bom.supports.length === 0) && (!bom.accessories || bom.accessories.length === 0) && (
         <div className="mt-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
@@ -269,4 +228,3 @@ export default function BOMResults({ bom }) {
     </div>
   );
 }
-// Version 2.0.0 - Phase 2: Stay System Support11

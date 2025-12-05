@@ -1,20 +1,16 @@
 // app/calculator/components/TankInputs.js
-// Version: 2.0.1
-// Fixed: Material change bug (HDG/MS selection)
-// Updated: Smart partition positioning with auto-distribute and customize option
-// Preserved: ALL v1.2.0 functionality (WLI 6 options, BNW 6 options, Tank Finish, Pipe Fittings)
+// Version: 1.2.0
+// Updated: Added Pipe Fittings & Accessories section
+// Fixed: MS/HDG Tank Finish dropdowns (BUG-008)
 
 import { useState } from 'react';
 
 export default function TankInputs({ inputs, setInputs }) {
-  // Local state for customize mode
-  const [customizePartitions, setCustomizePartitions] = useState(false);
-
   const handleChange = (field, value) => {
     setInputs(prev => ({ ...prev, [field]: value }));
   };
 
-  // Handle material change with FRP logic - FIXED
+  // Handle material change with FRP logic
   const handleMaterialChange = (material) => {
     if (material === 'FRP') {
       // FRP is always Metric Type 2, with FRP-specific build standard
@@ -26,12 +22,11 @@ export default function TankInputs({ inputs, setInputs }) {
         buildStandard: 'MS1390'
       }));
     } else {
-      // Steel tanks - FIXED: prev is now inside the callback
+      // Switch to steel build standard if coming from FRP
       setInputs(prev => ({
         ...prev,
         material,
-        panelTypeDetail: (material === 'SS316' || material === 'SS304') ? 1 : prev.panelTypeDetail,
-        buildStandard: (prev.buildStandard === 'MS1390' || prev.buildStandard === 'SS245')
+        buildStandard: prev.buildStandard === 'MS1390' || prev.buildStandard === 'SS245'
           ? 'BSI'
           : prev.buildStandard
       }));
@@ -91,9 +86,6 @@ export default function TankInputs({ inputs, setInputs }) {
   // Check if FRP is selected (disable panel type controls)
   const isFRP = inputs.material === 'FRP';
 
-  // Check if Stainless Steel (SS316/SS304 can only use Type 1) - Phase 2
-  const isStainless = inputs.material === 'SS316' || inputs.material === 'SS304';
-
   // Pipe fitting options
   const OPENING_TYPES = ['Inlet', 'Outlet', 'Overflow/Warning', 'Drain', 'Balancing'];
   const FLANGE_TYPES = ['PN16', 'Table E', 'ANSI', 'JIS 10K', 'JAMNUT'];
@@ -110,94 +102,6 @@ export default function TankInputs({ inputs, setInputs }) {
   const PIPE_MATERIALS = ['MS', 'HDG', 'SS304', 'SS316'];
   const OUTSIDE_ITEMS = ['Flange', 'S/F Nozzle', 'D/F Nozzle', 'Socket'];
   const INSIDE_ITEMS = ['Flange', 'S/F Nozzle', 'D/F Nozzle', 'Socket', 'Vortex Inhibitor'];
-
-  // ==========================================
-  // PARTITION POSITION CALCULATIONS (Phase 2)
-  // ==========================================
-
-  const panelSize = inputs.panelType === 'm' ? 1.0 : 1.22;
-  const lengthPanels = Math.ceil((inputs.length || 1) / panelSize);
-  const widthPanels = Math.ceil((inputs.width || 1) / panelSize);
-
-  // Determine partition direction (default: across shorter side = width)
-  const partitionAcrossLength = inputs.partitionDirection === 'length';
-  const partitionSpanPanels = partitionAcrossLength ? lengthPanels : widthPanels;
-  const partitionDimension = partitionAcrossLength ? inputs.length : inputs.width;
-
-  // Calculate auto-distributed partition positions
-  const getAutoDistributedPositions = (count) => {
-    if (count === 0) return [];
-    const positions = [];
-    for (let i = 1; i <= count; i++) {
-      // Distribute evenly: position = i * (totalPanels / (count + 1))
-      const pos = Math.round(i * partitionSpanPanels / (count + 1));
-      positions.push(Math.min(pos, partitionSpanPanels - 1)); // Ensure within bounds
-    }
-    return positions;
-  };
-
-  // Get current partition positions (either custom or auto)
-  const getPartitionPositions = () => {
-    const count = inputs.partitionCount || 0;
-    if (count === 0) return [];
-
-    // If custom positions exist and valid, use them
-    if (customizePartitions && inputs.partitionPositions && inputs.partitionPositions.length === count) {
-      return inputs.partitionPositions;
-    }
-
-    // Otherwise auto-distribute
-    return getAutoDistributedPositions(count);
-  };
-
-  // Generate dropdown options for a partition position
-  const getPositionOptions = (partitionIndex) => {
-    const options = [];
-    for (let i = 1; i < partitionSpanPanels; i++) {
-      const position = i * panelSize;
-      const remaining = partitionDimension - position;
-      options.push({
-        value: i,
-        label: `After panel ${i} → ${position.toFixed(1)}${inputs.panelType === 'm' ? 'm' : 'ft'} | ${remaining.toFixed(1)}${inputs.panelType === 'm' ? 'm' : 'ft'}`
-      });
-    }
-    return options;
-  };
-
-  // Update a specific partition position
-  const updatePartitionPosition = (index, value) => {
-    const currentPositions = getPartitionPositions();
-    const newPositions = [...currentPositions];
-    newPositions[index] = parseInt(value);
-    // Sort to ensure positions are in order
-    newPositions.sort((a, b) => a - b);
-    handleChange('partitionPositions', newPositions);
-  };
-
-  // Calculate section sizes for preview
-  const getSectionSizes = () => {
-    const positions = getPartitionPositions();
-    const count = inputs.partitionCount || 0;
-    if (count === 0) return [partitionDimension];
-
-    const sizes = [];
-    let lastPos = 0;
-
-    positions.forEach(pos => {
-      sizes.push((pos - lastPos) * panelSize);
-      lastPos = pos;
-    });
-    sizes.push((partitionSpanPanels - lastPos) * panelSize);
-
-    return sizes;
-  };
-
-  // Reset to auto-distribution
-  const resetToAutoDistribute = () => {
-    const autoPositions = getAutoDistributedPositions(inputs.partitionCount || 0);
-    handleChange('partitionPositions', autoPositions);
-    setCustomizePartitions(false);
-  };
 
   return (
     <div className="space-y-5">
@@ -293,7 +197,7 @@ export default function TankInputs({ inputs, setInputs }) {
         </div>
       </div>
 
-      {/* Panel Type Detail - Updated for Phase 2 with SS316/SS304 restriction */}
+      {/* Panel Type Detail */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
           Panel Type Detail
@@ -311,26 +215,17 @@ export default function TankInputs({ inputs, setInputs }) {
             Type 1
           </button>
           <button
-            onClick={() => !isFRP && !isStainless && handleChange('panelTypeDetail', 2)}
-            disabled={isFRP || isStainless}
-            title={isStainless ? 'Type 2 not available for Stainless Steel' : ''}
+            onClick={() => !isFRP && handleChange('panelTypeDetail', 2)}
+            disabled={isFRP}
             className={`py-2 px-4 rounded-lg font-medium transition-colors ${
               (inputs.panelTypeDetail || 1) === 2
                 ? 'bg-blue-600 text-white'
-                : isStainless
-                ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             } ${isFRP ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             Type 2
           </button>
         </div>
-        {/* Phase 2: Show warning for SS316/SS304 */}
-        {isStainless && (
-          <p className="text-xs text-amber-600 mt-1">
-            ⚠️ SS316/SS304 only supports Type 1 panels (Type 2 not available)
-          </p>
-        )}
       </div>
 
       {/* Tank Dimensions */}
@@ -462,123 +357,13 @@ export default function TankInputs({ inputs, setInputs }) {
           min="0"
           max="10"
           value={inputs.partitionCount || 0}
-          onChange={(e) => {
-            const newCount = parseInt(e.target.value) || 0;
-            handleChange('partitionCount', newCount);
-            // Reset customize mode and positions when count changes
-            setCustomizePartitions(false);
-            handleChange('partitionPositions', getAutoDistributedPositions(newCount));
-          }}
+          onChange={(e) => handleChange('partitionCount', parseInt(e.target.value) || 0)}
           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         />
+        <p className="text-xs text-gray-500 mt-1">
+          Partitions run across the shorter side
+        </p>
       </div>
-
-      {/* ==========================================
-          PARTITION CONFIGURATION (Phase 2 - Enhanced)
-          Only show when partitions > 0
-          ========================================== */}
-      {inputs.partitionCount > 0 && (
-        <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 space-y-4">
-          <div className="flex justify-between items-center">
-            <h4 className="text-sm font-medium text-gray-700">Partition Configuration</h4>
-            {!customizePartitions ? (
-              <button
-                onClick={() => {
-                  setCustomizePartitions(true);
-                  // Initialize custom positions with auto-distributed values
-                  handleChange('partitionPositions', getAutoDistributedPositions(inputs.partitionCount));
-                }}
-                className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
-              >
-                📐 Customize Positions
-              </button>
-            ) : (
-              <button
-                onClick={resetToAutoDistribute}
-                className="text-xs text-gray-600 hover:text-gray-700 font-medium flex items-center gap-1"
-              >
-                ↺ Reset to Even
-              </button>
-            )}
-          </div>
-
-          {/* Partition Direction */}
-          <div>
-            <label className="block text-xs text-gray-600 mb-1">
-              Partition Direction
-            </label>
-            <select
-              value={inputs.partitionDirection || 'width'}
-              onChange={(e) => {
-                handleChange('partitionDirection', e.target.value);
-                // Reset positions when direction changes
-                handleChange('partitionPositions', null);
-                setCustomizePartitions(false);
-              }}
-              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="width">
-                Across Width ({inputs.width}{inputs.panelType === 'm' ? 'm' : ' panels'}) → {inputs.partitionCount + 1} sections
-              </option>
-              <option value="length">
-                Across Length ({inputs.length}{inputs.panelType === 'm' ? 'm' : ' panels'}) → {inputs.partitionCount + 1} sections
-              </option>
-            </select>
-          </div>
-
-          {/* Auto-distribute info or Custom position dropdowns */}
-          {!customizePartitions ? (
-            <div className="text-xs text-gray-600 bg-blue-50 rounded p-2 border border-blue-200">
-              ✓ Partitions evenly distributed across {partitionDimension.toFixed(1)}{inputs.panelType === 'm' ? 'm' : 'ft'}
-            </div>
-          ) : (
-            <div className="space-y-3">
-              <p className="text-xs text-gray-500">Adjust each partition position:</p>
-              {Array.from({ length: inputs.partitionCount }).map((_, index) => (
-                <div key={index}>
-                  <label className="block text-xs text-gray-600 mb-1">
-                    Partition {index + 1} Position
-                  </label>
-                  <select
-                    value={getPartitionPositions()[index] || getAutoDistributedPositions(inputs.partitionCount)[index]}
-                    onChange={(e) => updatePartitionPosition(index, e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    {getPositionOptions(index).map(opt => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Visual Preview */}
-          <div className="pt-2">
-            <div className="text-xs text-gray-600 font-medium mb-2">Preview:</div>
-            <div className="flex items-stretch justify-center flex-wrap gap-1">
-              {getSectionSizes().map((size, i) => (
-                <div key={i} className="flex items-center">
-                  <div
-                    className="bg-blue-100 border border-blue-300 rounded px-3 py-2 text-xs text-blue-800 font-medium text-center min-w-[60px]"
-                    style={{ flex: `${size} 0 0` }}
-                  >
-                    <div>Section {i + 1}</div>
-                    <div className="text-[10px] text-blue-600 mt-0.5">
-                      {size.toFixed(1)}{inputs.panelType === 'm' ? 'm' : 'ft'}
-                    </div>
-                  </div>
-                  {i < inputs.partitionCount && (
-                    <div className="w-1 h-12 bg-red-500 mx-1 flex-shrink-0" title={`Partition ${i + 1}`}></div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Roof Thickness */}
       <div>
@@ -662,44 +447,6 @@ export default function TankInputs({ inputs, setInputs }) {
           </div>
         )}
       </div>
-
-      {/* ==========================================
-          STAY SYSTEM INFO BOX (Phase 2)
-          Only show for steel tanks with Internal Support enabled
-          ========================================== */}
-      {!isFRP && inputs.internalSupport && (
-        <div className={`rounded-lg p-4 border ${
-          (inputs.panelTypeDetail || 1) === 2
-            ? 'bg-purple-50 border-purple-200'
-            : 'bg-indigo-50 border-indigo-200'
-        }`}>
-          <div className={`text-sm font-medium ${
-            (inputs.panelTypeDetail || 1) === 2 ? 'text-purple-800' : 'text-indigo-800'
-          }`}>
-            {(inputs.panelTypeDetail || 1) === 2 ? 'Type 2 Stay System' : 'Type 1 Stay System'}
-          </div>
-          <ul className={`text-xs mt-2 space-y-1 ${
-            (inputs.panelTypeDetail || 1) === 2 ? 'text-purple-700' : 'text-indigo-700'
-          }`}>
-            {(inputs.panelTypeDetail || 1) === 2 ? (
-              <>
-                <li>• HS - Horizontal Stay (ties wall to base)</li>
-                <li>• VS - Vertical Stay (ties wall to base)</li>
-                <li>• HSO - Horizontal OP Stay (ties to opposite wall)</li>
-                <li>• HSP/VSP - Partition stays</li>
-                <li>• Bottom tier welded, upper tiers bolted</li>
-              </>
-            ) : (
-              <>
-                <li>• S - Standard Stay (ties wall to base)</li>
-                <li>• OP - Opening Stay (ties to opposite wall)</li>
-                <li>• POP - Partition OP Stay</li>
-                <li>• Simpler construction, all bolted</li>
-              </>
-            )}
-          </ul>
-        </div>
-      )}
 
       {/* ==========================================
           TANK ACCESSORIES SECTION (moved above Pipe Fittings)
@@ -1068,5 +815,4 @@ export default function TankInputs({ inputs, setInputs }) {
     </div>
   );
 }
-// Version 2.0.1 - Phase 2: Fixed material change + Smart partition positioning
-// Preserved: WLI 6 options, BNW 6 options, Tank Finish dropdowns, Pipe Fittings
+// Deployed Fri Nov 28 16:55:44 +08 2025
