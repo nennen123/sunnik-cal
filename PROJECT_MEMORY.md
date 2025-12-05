@@ -1933,3 +1933,90 @@ nennen123/sunnik-cal/
 ---
 
 *End of Session 6 Update*
+
+---
+
+## Session 7: BUG-009 Small Tank Panel Calculation Fix
+
+**Date:** 2025-12-02
+**Version:** 1.2.2
+
+### Key Accomplishments
+
+#### 1. BUG-009 Fix: Small Tank Panel Calculation ✅
+- **Problem:** 1×1×1 tank was showing 14 panels instead of 6
+- **Root Cause:** Standard calculation logic not optimized for tiny/small tanks
+- **Solution:** Added `getTankSizeCategory()` helper function to classify tanks:
+  - `tiny`: 1×1 tanks (single panel per face)
+  - `small`: 2×2 tanks (4 panels per face)
+  - `standard`: Larger tanks (normal grid calculation)
+
+#### 2. Verification Tests ✅
+| Tank Size | Expected | Actual | Status |
+|-----------|----------|--------|--------|
+| 1×1×1     | 6 panels | 6 panels | ✅ Pass |
+| 2×2×1     | 16 panels | 16 panels | ✅ Pass |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `app/lib/bomCalculator.js` | +414/-162 lines - Added getTankSizeCategory() helper |
+
+### Git History
+- **Commit:** `15c24eb` - fix(BUG-009): Small tank panel calculation
+- **Tag:** `v1.2.2` - BUG-009 fix: Small tank calculation
+- **Pushed:** main branch + v1.2.2 tag
+
+### Session Statistics
+- **Duration:** ~5 minutes
+- **Tests Run:** 2 (1×1×1 and 2×2×1 tank verification)
+- **Result:** All tests passing
+
+---
+
+*End of Session 7 Update*
+
+---
+
+## Session 8: Phase 2 Steel Stay System (In Progress)
+
+**Date:** 2025-12-05
+**Version:** 1.3.0 (pending)
+**Focus:** Steel Stay System implementation
+
+### Session Notes
+
+#### 1. Phase 2 Steel Stay System - Files Pending
+User requested replacement of 4 files for Phase 2 Steel Stay System:
+1. `app/calculator/components/TankInputs.js`
+2. `app/lib/bomCalculator.js`
+3. `app/calculator/components/BOMResults.js`
+4. `app/calculator/page.js`
+
+**Status:** ⏳ Awaiting source files from user (files at `/mnt/user-data/outputs/` not found)
+
+#### 2. Current Version Status
+- **Version 1.3.0** introduced Roof Support calculation (commit `fd9680e`)
+- BUG-009 fix for small tank calculations verified working
+- Label changed from 'Tank Dimensions (meters)' to 'Tank Dimensions (Panels)'
+
+### Recent Commits (from main branch)
+| Commit | Description |
+|--------|-------------|
+| `fd9680e` | feat(v1.3.0): Add Roof Support calculation |
+| `38c2c8b` | fix(UI): Change 'Tank Dimensions (meters)' to 'Tank Dimensions (Panels)' |
+| `15c24eb` | fix(BUG-009): Small tank panel calculation |
+| `de9a924` | fix: Improve Supabase batch loading |
+| `7d630e2` | Force redeploy with latest TankInputs |
+
+### Next Steps
+1. [ ] User to provide Phase 2 Steel Stay System source files
+2. [ ] Replace 4 target files with updated versions
+3. [ ] Test with `npm run dev`
+4. [ ] Verify Steel Stay calculation logic
+5. [ ] Commit and push to GitHub
+
+---
+
+*End of Session 8 Update*
