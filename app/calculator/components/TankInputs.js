@@ -621,7 +621,14 @@ export default function TankInputs({ inputs, setInputs }) {
             type="checkbox"
             id="internalSupport"
             checked={inputs.internalSupport || false}
-            onChange={(e) => handleChange('internalSupport', e.target.checked)}
+            onChange={(e) => {
+              // Prevent unchecking if external is also unchecked
+              if (!e.target.checked && !inputs.externalSupport) {
+                alert('At least one support type is required');
+                return;
+              }
+              handleChange('internalSupport', e.target.checked);
+            }}
             className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
           />
           <label htmlFor="internalSupport" className="ml-2 text-sm text-gray-700">
@@ -634,14 +641,28 @@ export default function TankInputs({ inputs, setInputs }) {
           <input
             type="checkbox"
             id="externalSupport"
-            checked={inputs.externalSupport || false}
-            onChange={(e) => handleChange('externalSupport', e.target.checked)}
+            checked={inputs.externalSupport !== false}
+            onChange={(e) => {
+              // Prevent unchecking if internal is also unchecked
+              if (!e.target.checked && !inputs.internalSupport) {
+                alert('At least one support type is required');
+                return;
+              }
+              handleChange('externalSupport', e.target.checked);
+            }}
             className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
           />
           <label htmlFor="externalSupport" className="ml-2 text-sm text-gray-700">
             External Support (I-Beams)
           </label>
         </div>
+
+        {/* Warning if neither selected - should not happen with validation */}
+        {!inputs.internalSupport && !inputs.externalSupport && (
+          <p className="text-red-600 text-sm mb-3">
+            ⚠️ At least one support type is required
+          </p>
+        )}
 
         {/* I-Beam Size Selector */}
         {inputs.externalSupport && (

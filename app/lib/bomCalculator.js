@@ -629,6 +629,358 @@ function calculateStays(inputs) {
 }
 
 // ============================================
+// FRP TIE ROD CALCULATION - Phase 3 (Refined)
+// Based on analysis of real drawings: 5M×3M×3M+1P and 7M×6M×6M
+// ============================================
+
+/**
+ * Calculate FRP Tie Rod system components
+ * FRP tanks use through-tank tie rods (SS304) for internal support
+ * Components: End Studs, Stay Plates, Lug Brackets, Hooks, Hardware
+ */
+function calculateFRPTieRods(inputs) {
+  const {
+    length,
+    width,
+    height,
+    partitionCount = 0,
+    partitionDirection = 'width',
+    internalSupport = false
+  } = inputs;
+
+  // If internal support not enabled, return empty
+  if (!internalSupport) {
+    return { tieRods: [], hardware: [], stayPlates: [], partitionComponents: [] };
+  }
+
+  const lengthPanels = Math.ceil(length);
+  const widthPanels = Math.ceil(width);
+  const heightPanels = Math.ceil(height);
+  const perimeter = 2 * (lengthPanels + widthPanels);
+
+  const tieRods = [];
+  const hardware = [];
+  const stayPlates = [];
+  const partitionComponents = [];
+
+  // ===========================
+  // END STUDS
+  // Formula: (joints × height × 4) with scaling for larger tanks
+  // Each panel joint has 4 stud positions (2 per side × 2 walls)
+  // ===========================
+
+  // Length direction studs (go through width walls)
+  // These studs span the LENGTH of the tank
+  const lengthJoints = widthPanels - 1;
+  let lengthStudQty = lengthJoints * heightPanels * 4;
+
+  // Width direction studs (go through length walls)
+  // These studs span the WIDTH of the tank
+  const widthJoints = lengthPanels - 1;
+  let widthStudQty = widthJoints * heightPanels * 4;
+
+  // Scale up for larger tanks (>5m in any dimension)
+  if (length > 5 || width > 5 || height > 4) {
+    lengthStudQty = Math.ceil(lengthStudQty * 1.33);
+    widthStudQty = Math.ceil(widthStudQty * 1.33);
+  }
+
+  // Add length direction studs
+  if (lengthStudQty > 0) {
+    tieRods.push({
+      sku: `TR-FRP-${Math.round(length)}M-SS304`,
+      description: `End Stud M10 × ${Math.round(length)}M - SS304 (length direction)`,
+      quantity: lengthStudQty,
+      unitPrice: 0
+    });
+  }
+
+  // Add width direction studs
+  if (widthStudQty > 0) {
+    tieRods.push({
+      sku: `TR-FRP-${Math.round(width)}M-SS304`,
+      description: `End Stud M10 × ${Math.round(width)}M - SS304 (width direction)`,
+      quantity: widthStudQty,
+      unitPrice: 0
+    });
+  }
+
+  // ===========================
+  // STAY PLATES (Internal support connections)
+  // ===========================
+
+  // 2H Stay Plates: perimeter × 1.5 (refined formula)
+  const stayPlate2HQty = Math.ceil(perimeter * 1.5);
+  stayPlates.push({
+    sku: 'StayPlate2H-HDG',
+    description: 'HDG Stay Plate 2H',
+    quantity: stayPlate2HQty,
+    unitPrice: 0
+  });
+
+  // 4H Stay Plates: only for tanks 4m+ height
+  if (heightPanels >= 4) {
+    const stayPlate4HQty = Math.ceil(perimeter * (heightPanels / 4) * 1.7);
+    stayPlates.push({
+      sku: 'StayPlate4H-HDG',
+      description: 'HDG Stay Plate 4H',
+      quantity: stayPlate4HQty,
+      unitPrice: 0
+    });
+  }
+
+  // ===========================
+  // PARTITION COMPONENTS
+  // ===========================
+
+  if (partitionCount > 0) {
+    const partitionAcrossLength = partitionDirection === 'length';
+    const partitionSpan = partitionAcrossLength ? widthPanels : lengthPanels;
+
+    // Partition End Fix (short stud at partition)
+    // Formula: span × height × 0.9 (refined based on 5×3×3 drawing: 8 for 3×3)
+    const partitionEndFixQty = Math.ceil(partitionSpan * heightPanels * 0.9 * partitionCount);
+    partitionComponents.push({
+      sku: 'TR-FRP-P-SS304',
+      description: 'Partition End Fix M10 × 250L - SS304',
+      quantity: partitionEndFixQty,
+      unitPrice: 0
+    });
+
+    // Partition Internal C-Bracket: 4 per partition
+    partitionComponents.push({
+      sku: 'PI-C-BRACKET-127-SS304',
+      description: 'Partition Internal C-Bracket C/C 127mm - SS304',
+      quantity: partitionCount * 4,
+      unitPrice: 0
+    });
+
+    // SS304 Stay Plates for partition area: 4 per partition
+    partitionComponents.push({
+      sku: 'StayPlate2H-SS304',
+      description: 'SS304 Stay Plate 2H (partition area)',
+      quantity: partitionCount * 4,
+      unitPrice: 0
+    });
+  }
+
+  // ===========================
+  // HARDWARE (refined ratios based on drawings)
+  // ===========================
+
+  const totalEndStuds = lengthStudQty + widthStudQty;
+
+  // Lug Hole Brackets: 1.05× total studs
+  const lhbQty = Math.ceil(totalEndStuds * 1.05);
+  hardware.push({
+    sku: 'LHB-HDG',
+    description: 'HDG Lug Hole Bracket',
+    quantity: lhbQty,
+    unitPrice: 0
+  });
+
+  // EPDM Rubber Washers: 1.1× total studs
+  const washerQty = Math.ceil(totalEndStuds * 1.1);
+  hardware.push({
+    sku: 'BN300R001',
+    description: 'EPDM Rubber Washer',
+    quantity: washerQty,
+    unitPrice: 0
+  });
+
+  // Tie Rod Hooks: 0.3× total studs
+  const hookQty = Math.ceil(totalEndStuds * 0.3);
+  hardware.push({
+    sku: 'TRB-HOOK',
+    description: 'SS304 Tie Rod Hook',
+    quantity: hookQty,
+    unitPrice: 0
+  });
+
+  // Long Nuts: 0.5× total studs
+  const longNutQty = Math.ceil(totalEndStuds * 0.5);
+  hardware.push({
+    sku: 'BN300B0NM10L-40',
+    description: 'SS304 M10 Long Nut',
+    quantity: longNutQty,
+    unitPrice: 0
+  });
+
+  // Standard M10 Nuts: 3× total studs (for end connections)
+  const nutQty = Math.ceil(totalEndStuds * 3);
+  hardware.push({
+    sku: 'BN300B0NM10',
+    description: 'SS304 M10 Nut',
+    quantity: nutQty,
+    unitPrice: 0
+  });
+
+  console.log(`🔧 FRP Tie Rods calculated: ${tieRods.length} tie rod types, ${hardware.length} hardware types, ${stayPlates.length} stay plate types`);
+  console.log(`   → End Studs: ${totalEndStuds} total (L:${lengthStudQty} + W:${widthStudQty})`);
+
+  return { tieRods, hardware, stayPlates, partitionComponents };
+}
+
+/**
+ * Calculate FRP Structural Support components
+ * Beams, roof supports, corner angles, bend angles, flats
+ *
+ * NOTE: This is controlled by externalSupport flag (not internalSupport)
+ * - externalSupport = true → Beams, Bend Angles, Structural components
+ * - internalSupport = true → Tie Rods, Stay Plates, Hardware (separate function)
+ */
+function calculateFRPStructuralSupport(inputs) {
+  const {
+    length,
+    width,
+    height,
+    partitionCount = 0,
+    externalSupport = true  // Default to true
+  } = inputs;
+
+  // External support provides structural beams and bend angles
+  if (!externalSupport) {
+    console.log('🔧 FRP External Support: OFF - no beams/structural components');
+    return { beams: [], roofSupport: [], bendAngles: [] };
+  }
+
+  const lengthPanels = Math.ceil(length);
+  const widthPanels = Math.ceil(width);
+  const heightPanels = Math.ceil(height);
+  const perimeter = 2 * (lengthPanels + widthPanels);
+
+  const beams = [];
+  const roofSupport = [];
+  const bendAngles = [];
+
+  // ===========================
+  // MAIN BEAMS (SHS 50×50×4t)
+  // ===========================
+
+  // BE2 beams (2069L) - main structural
+  const be2Qty = Math.ceil(perimeter / 3);
+  beams.push({
+    sku: 'BE2-40-HDG',
+    description: 'Main Beam SHS 50×50×4t × 2069L (BE2) - HDG',
+    quantity: be2Qty,
+    unitPrice: 0
+  });
+
+  // BC1 beams (998L) - shorter sections
+  const bc1Qty = Math.ceil(perimeter / 4);
+  beams.push({
+    sku: 'BC1-40-HDG',
+    description: 'Main Beam SHS 50×50×4t × 998L (BC1) - HDG',
+    quantity: bc1Qty,
+    unitPrice: 0
+  });
+
+  // Sub beams (950L)
+  const subBeamQty = (lengthPanels + widthPanels) * heightPanels;
+  beams.push({
+    sku: 'S1M-40-HDG',
+    description: 'Sub Beam SHS 50×50×4t × 950L - HDG',
+    quantity: subBeamQty,
+    unitPrice: 0
+  });
+
+  // Skid Base Brackets
+  const skidBaseQty = perimeter;
+  beams.push({
+    sku: 'BSB-FRP',
+    description: 'Skid Base Bracket - FRP',
+    quantity: skidBaseQty,
+    unitPrice: 0
+  });
+
+  // ===========================
+  // ROOF SUPPORT
+  // ===========================
+
+  // ABS Roof Plate Support
+  const roofPlateQty = Math.ceil((lengthPanels * widthPanels) / 3);
+  roofSupport.push({
+    sku: 'OA100G012',
+    description: 'ABS Roof Plate Support',
+    quantity: roofPlateQty,
+    unitPrice: 0
+  });
+
+  // UPVC Roof Support (based on height)
+  const roofSupportSku = `RS${heightPanels}0-UPVC`;
+  roofSupport.push({
+    sku: roofSupportSku,
+    description: `${height}M UPVC Roof Support`,
+    quantity: roofPlateQty,
+    unitPrice: 0
+  });
+
+  // ===========================
+  // CORNER ANGLES
+  // ===========================
+
+  roofSupport.push({
+    sku: `CA-${heightPanels}0-FRP`,
+    description: `HDG Corner Angle ${height}M - FRP`,
+    quantity: 4,
+    unitPrice: 0
+  });
+
+  // SS304 Corner Cleat
+  roofSupport.push({
+    sku: 'CC-FRP-SS304',
+    description: 'SS304 Corner Cleat - FRP',
+    quantity: 4,
+    unitPrice: 0
+  });
+
+  // ===========================
+  // BEND ANGLES & FLATS
+  // ===========================
+
+  // HDG Bend Angles (940L)
+  const bendAngleQty = perimeter * heightPanels * 2;
+  bendAngles.push({
+    sku: 'BA-FRP-940-HDG',
+    description: 'HDG 940L × 60 × 25 × 3t Bend Angle',
+    quantity: bendAngleQty,
+    unitPrice: 0
+  });
+
+  // HDG Flats (940L)
+  const flatQty = Math.ceil(bendAngleQty / 2);
+  bendAngles.push({
+    sku: 'F-FRP-940-HDG',
+    description: 'HDG 940L × 46 × 3t Flat',
+    quantity: flatQty,
+    unitPrice: 0
+  });
+
+  // SS304 Bend Angles for partition areas
+  if (partitionCount > 0) {
+    bendAngles.push({
+      sku: 'BA-FRP-940-SS304',
+      description: 'SS304 940L × 60 × 25 × 3t Bend Angle (partition)',
+      quantity: partitionCount * heightPanels * 4,
+      unitPrice: 0
+    });
+  }
+
+  // Shim Plates
+  const shimQty = perimeter * 2;
+  bendAngles.push({
+    sku: 'SP-FRP',
+    description: 'Shim Plate 2" × 2" - FRP',
+    quantity: shimQty,
+    unitPrice: 0
+  });
+
+  console.log(`🏗️ FRP Structural calculated: ${beams.length} beam types, ${roofSupport.length} roof support types`);
+
+  return { beams, roofSupport, bendAngles };
+}
+
+// ============================================
 // STEEL PANEL THICKNESS LOGIC
 // ============================================
 
@@ -878,7 +1230,10 @@ export function calculateFRPBOM(inputs) {
     partition: [],
     roof: [],
     roofSupport: [],
-    supports: [],
+    tieRods: [],        // Phase 3: FRP tie rod system
+    hardware: [],       // Phase 3: Tie rod hardware
+    stayPlates: [],     // Phase 3: External stay plates
+    supports: [],       // Structural beams
     accessories: [],
     pipeFittings: [],
     summary: {
@@ -1322,14 +1677,55 @@ export function calculateFRPBOM(inputs) {
   }
 
   // ===========================
+  // INTERNAL SUPPORT (Tie Rods & Stay Plates)
+  // Controlled by internalSupport flag
+  // ===========================
+
+  const tieRodResult = calculateFRPTieRods({
+    ...inputs,
+    internalSupport: inputs.internalSupport || false
+  });
+  bom.tieRods = tieRodResult.tieRods;
+  bom.hardware = tieRodResult.hardware;
+  bom.stayPlates = tieRodResult.stayPlates;
+
+  // Add partition components to partition array
+  if (tieRodResult.partitionComponents.length > 0) {
+    bom.partition.push(...tieRodResult.partitionComponents);
+  }
+
+  // ===========================
+  // EXTERNAL SUPPORT (Beams & Structural)
+  // Controlled by externalSupport flag (default true)
+  // ===========================
+
+  const structuralResult = calculateFRPStructuralSupport({
+    ...inputs,
+    externalSupport: inputs.externalSupport !== false  // Default true if not specified
+  });
+  bom.supports = [
+    ...structuralResult.beams,
+    ...structuralResult.bendAngles
+  ];
+  bom.roofSupport = structuralResult.roofSupport;
+
+  // ===========================
   // CALCULATE TOTALS
   // ===========================
 
-  const allPanelItems = [...bom.base, ...bom.walls, ...bom.partition, ...bom.roof];
-  const allItems = [...allPanelItems, ...bom.roofSupport, ...bom.supports, ...bom.accessories, ...bom.pipeFittings];
+  const allPanels = [...bom.base, ...bom.walls, ...bom.partition, ...bom.roof];
+  const allItems = [
+    ...allPanels,
+    ...bom.roofSupport,
+    ...bom.tieRods,
+    ...bom.hardware,
+    ...bom.stayPlates,
+    ...bom.supports,
+    ...(bom.accessories || [])
+  ];
 
-  bom.summary.totalPanels = allPanelItems.reduce((sum, item) => sum + item.quantity, 0);
-  bom.summary.totalCost = allItems.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
+  bom.summary.totalPanels = allPanels.reduce((sum, item) => sum + item.quantity, 0);
+  bom.summary.totalCost = allItems.reduce((sum, item) => sum + (item.quantity * (item.unitPrice || 0)), 0);
 
   console.log(`📦 FRP BOM calculated: ${buildStandard} standard`);
   console.log(`   → Sealant: ${buildComponents.sealant}, Roof Pipe: ${buildComponents.roofPipe}`);

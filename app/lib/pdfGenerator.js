@@ -25,6 +25,12 @@ export async function generatePDF(bom, inputs) {
     walls: [52, 168, 83],      // Green
     partition: [251, 188, 5],  // Yellow
     roof: [234, 67, 53],       // Red
+    roofSupport: [236, 64, 122], // Pink
+    stays: [142, 36, 170],     // Purple
+    cleats: [63, 81, 181],     // Indigo
+    tieRods: [0, 150, 136],    // Teal
+    stayPlates: [255, 152, 0], // Amber
+    hardware: [96, 125, 139],  // Slate
     supports: [103, 58, 183],  // Purple
     accessories: [0, 172, 193], // Cyan
     pipeFittings: [255, 112, 67] // Orange
@@ -169,6 +175,32 @@ export async function generatePDF(bom, inputs) {
     addSection('PARTITION PANELS', bom.partition, sectionColors.partition);
   }
   addSection('ROOF PANELS', bom.roof, sectionColors.roof);
+
+  // Roof Support section
+  if (bom.roofSupport && bom.roofSupport.length > 0) {
+    addSection('ROOF SUPPORT', bom.roofSupport, sectionColors.roofSupport);
+  }
+
+  // Steel Stay System (Phase 2)
+  if (bom.stays && bom.stays.length > 0) {
+    addSection('STAY SYSTEM', bom.stays, sectionColors.stays);
+  }
+  if (bom.cleats && bom.cleats.length > 0) {
+    addSection('CLEATS & CONNECTIONS', bom.cleats, sectionColors.cleats);
+  }
+
+  // FRP Internal Support (Phase 3)
+  if (bom.tieRods && bom.tieRods.length > 0) {
+    addSection('TIE RODS', bom.tieRods, sectionColors.tieRods);
+  }
+  if (bom.stayPlates && bom.stayPlates.length > 0) {
+    addSection('STAY PLATES', bom.stayPlates, sectionColors.stayPlates);
+  }
+  if (bom.hardware && bom.hardware.length > 0) {
+    addSection('TIE ROD HARDWARE', bom.hardware, sectionColors.hardware);
+  }
+
+  // External Support structures
   if (bom.supports && bom.supports.length > 0) {
     addSection('SUPPORT STRUCTURES', bom.supports, sectionColors.supports);
   }

@@ -1,7 +1,7 @@
 // app/calculator/components/BOMResults.js
-// Version: 2.0.0
-// Updated: Phase 2 - Added stays and cleats sections
-// Preserved: All v1.3.0 functionality (roofSupport, supports, accessories, pipeFittings)
+// Version: 3.0.0
+// Updated: Phase 3 - Added FRP tie rod system sections (tieRods, hardware, stayPlates)
+// Preserved: All v2.0.0 functionality (stays, cleats) and v1.3.0 (roofSupport, supports, accessories, pipeFittings)
 
 export default function BOMResults({ bom }) {
   // Section color scheme (matching PDF)
@@ -16,11 +16,18 @@ export default function BOMResults({ bom }) {
     roofHeader: 'bg-red-100 text-red-800',
     roofSupport: 'bg-pink-50 border-pink-300',
     roofSupportHeader: 'bg-pink-100 text-pink-800',
-    // NEW: Stay system colors (Phase 2)
+    // Phase 2: Stay system colors
     stays: 'bg-purple-50 border-purple-300',
     staysHeader: 'bg-purple-100 text-purple-800',
     cleats: 'bg-indigo-50 border-indigo-300',
     cleatsHeader: 'bg-indigo-100 text-indigo-800',
+    // Phase 3: FRP Tie Rod colors
+    tieRods: 'bg-teal-50 border-teal-300',
+    tieRodsHeader: 'bg-teal-100 text-teal-800',
+    hardware: 'bg-slate-50 border-slate-300',
+    hardwareHeader: 'bg-slate-100 text-slate-800',
+    stayPlates: 'bg-amber-50 border-amber-300',
+    stayPlatesHeader: 'bg-amber-100 text-amber-800',
     // Existing
     supports: 'bg-violet-50 border-violet-300',
     supportsHeader: 'bg-violet-100 text-violet-800',
@@ -101,17 +108,22 @@ export default function BOMResults({ bom }) {
   const partitionTotal = calculateSectionTotal(bom.partition);
   const roofTotal = calculateSectionTotal(bom.roof);
   const roofSupportTotal = calculateSectionTotal(bom.roofSupport);
-  // NEW: Stay system totals (Phase 2)
+  // Phase 2: Stay system totals
   const staysTotal = calculateSectionTotal(bom.stays);
   const cleatsTotal = calculateSectionTotal(bom.cleats);
+  // Phase 3: FRP Tie Rod totals
+  const tieRodsTotal = calculateSectionTotal(bom.tieRods);
+  const hardwareTotal = calculateSectionTotal(bom.hardware);
+  const stayPlatesTotal = calculateSectionTotal(bom.stayPlates);
   // Existing
   const supportsTotal = calculateSectionTotal(bom.supports);
   const accessoriesTotal = calculateSectionTotal(bom.accessories);
   const pipeFittingsTotal = calculateSectionTotal(bom.pipeFittings);
 
-  // Grand total from all sections (including stays and cleats)
+  // Grand total from all sections (including stays, cleats, tie rods)
   const calculatedTotal = baseTotal + wallsTotal + partitionTotal + roofTotal +
                           roofSupportTotal + staysTotal + cleatsTotal +
+                          tieRodsTotal + hardwareTotal + stayPlatesTotal +
                           supportsTotal + accessoriesTotal + pipeFittingsTotal;
 
   // Use BOM summary total if available, otherwise use calculated
@@ -127,6 +139,9 @@ export default function BOMResults({ bom }) {
     ...(bom.roofSupport || []),
     ...(bom.stays || []),
     ...(bom.cleats || []),
+    ...(bom.tieRods || []),
+    ...(bom.hardware || []),
+    ...(bom.stayPlates || []),
     ...(bom.supports || []),
     ...(bom.accessories || []),
     ...(bom.pipeFittings || [])
@@ -141,6 +156,9 @@ export default function BOMResults({ bom }) {
     bom.roofSupport?.length > 0,
     bom.stays?.length > 0,
     bom.cleats?.length > 0,
+    bom.tieRods?.length > 0,
+    bom.hardware?.length > 0,
+    bom.stayPlates?.length > 0,
     bom.supports?.length > 0,
     bom.accessories?.length > 0,
     bom.pipeFittings?.length > 0
@@ -174,9 +192,14 @@ export default function BOMResults({ bom }) {
       {renderSection('ROOF PANELS', bom.roof, 'roof')}
       {renderSection('ROOF SUPPORT', bom.roofSupport, 'roofSupport')}
 
-      {/* NEW: Stay System Sections (Phase 2) */}
+      {/* Phase 2: Stay System Sections */}
       {renderSection('STAY SYSTEM', bom.stays, 'stays')}
       {renderSection('CLEATS & CONNECTIONS', bom.cleats, 'cleats')}
+
+      {/* Phase 3: FRP Tie Rod Sections */}
+      {renderSection('TIE RODS (FRP)', bom.tieRods, 'tieRods')}
+      {renderSection('TIE ROD HARDWARE', bom.hardware, 'hardware')}
+      {renderSection('STAY PLATES', bom.stayPlates, 'stayPlates')}
 
       {/* Existing sections */}
       {renderSection('SUPPORT STRUCTURES', bom.supports, 'supports')}
@@ -203,11 +226,18 @@ export default function BOMResults({ bom }) {
             <div className="text-lg font-bold text-red-800">RM {roofTotal.toFixed(0)}</div>
           </div>
         )}
-        {/* NEW: Stay system summary card */}
+        {/* Phase 2: Stay system summary card */}
         {(staysTotal + cleatsTotal) > 0 && (
           <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
             <div className="text-xs text-purple-600 font-medium">Stay System</div>
             <div className="text-lg font-bold text-purple-800">RM {(staysTotal + cleatsTotal).toFixed(0)}</div>
+          </div>
+        )}
+        {/* Phase 3: FRP Tie Rod summary card */}
+        {(tieRodsTotal + hardwareTotal + stayPlatesTotal) > 0 && (
+          <div className="bg-teal-50 border border-teal-200 rounded-lg p-3">
+            <div className="text-xs text-teal-600 font-medium">Tie Rod System</div>
+            <div className="text-lg font-bold text-teal-800">RM {(tieRodsTotal + hardwareTotal + stayPlatesTotal).toFixed(0)}</div>
           </div>
         )}
         {accessoriesTotal > 0 && (
@@ -237,12 +267,22 @@ export default function BOMResults({ bom }) {
         </div>
       </div>
 
-      {/* Stay System Info Note (NEW) */}
+      {/* Stay System Info Note (Phase 2) */}
       {bom.stays && bom.stays.length > 0 && (
         <div className="mt-6 bg-purple-50 border border-purple-200 rounded-lg p-4">
           <p className="text-sm text-purple-800">
             <strong>🔧 Stay System Included:</strong> Internal stay components for structural support.
             {staysTotal === 0 && ' Prices shown as RM 0.00 - SKUs pending database update.'}
+          </p>
+        </div>
+      )}
+
+      {/* FRP Tie Rod System Info Note (Phase 3) */}
+      {bom.tieRods && bom.tieRods.length > 0 && (
+        <div className="mt-6 bg-teal-50 border border-teal-200 rounded-lg p-4">
+          <p className="text-sm text-teal-800">
+            <strong>🔗 FRP Tie Rod System Included:</strong> Through-tank tie rods (SS304) for FRP structural support.
+            {tieRodsTotal === 0 && ' Prices shown as RM 0.00 - SKUs pending database update.'}
           </p>
         </div>
       )}
@@ -269,4 +309,4 @@ export default function BOMResults({ bom }) {
     </div>
   );
 }
-// Version 2.0.0 - Phase 2: Stay System Support11
+// Version 3.0.0 - Phase 3: FRP Tie Rod System Support

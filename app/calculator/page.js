@@ -29,7 +29,7 @@ export default function CalculatorPage() {
     // Existing fields
     roofThickness: 1.5,
     internalSupport: false,
-    externalSupport: false,
+    externalSupport: true,  // Default ON for FRP tanks
     iBeamSize: '150x75',
     wliMaterial: 'Ball Type',
     internalLadderQty: 1,
@@ -118,6 +118,11 @@ export default function CalculatorPage() {
       result.stays = applyPrices(result.stays || []);
       result.cleats = applyPrices(result.cleats || []);
 
+      // Phase 3: Apply prices to FRP tie rods, hardware, stay plates
+      result.tieRods = applyPrices(result.tieRods || []);
+      result.hardware = applyPrices(result.hardware || []);
+      result.stayPlates = applyPrices(result.stayPlates || []);
+
       // Apply prices to supports, accessories, and pipe fittings
       result.supports = applyPrices(result.supports || []);
       result.accessories = applyPrices(result.accessories || []);
@@ -136,6 +141,9 @@ export default function CalculatorPage() {
         ...(result.roofSupport || []),
         ...(result.stays || []),
         ...(result.cleats || []),
+        ...(result.tieRods || []),
+        ...(result.hardware || []),
+        ...(result.stayPlates || []),
         ...(result.supports || []),
         ...(result.accessories || []),
         ...(result.pipeFittings || [])
@@ -155,7 +163,11 @@ export default function CalculatorPage() {
         partitionPanels: result.partition?.length || 0,
         roofPanels: result.roof.length,
         stayItems: result.stays?.length || 0,
-        cleatItems: result.cleats?.length || 0
+        cleatItems: result.cleats?.length || 0,
+        // Phase 3: FRP tie rod items
+        tieRodItems: result.tieRods?.length || 0,
+        hardwareItems: result.hardware?.length || 0,
+        stayPlateItems: result.stayPlates?.length || 0
       });
 
       // Check for placeholder prices (debugging)
