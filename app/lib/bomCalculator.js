@@ -825,9 +825,10 @@ function calculateFRPTieRods(inputs) {
  * Calculate FRP Structural Support components
  * Beams, roof supports, corner angles, bend angles, flats
  *
- * NOTE: This is controlled by externalSupport flag (not internalSupport)
- * - externalSupport = true → Beams, Bend Angles, Structural components
- * - internalSupport = true → Tie Rods, Stay Plates, Hardware (separate function)
+ * NOTE:
+ * - Roof Support (OA100G012, RS-UPVC, CA-FRP, CC-FRP-SS304) → ALWAYS included for FRP
+ * - Beams & Bend Angles → Only when externalSupport = true
+ * - internalSupport controls Tie Rods (separate function)
  */
 function calculateFRPStructuralSupport(inputs) {
   const {
@@ -838,12 +839,6 @@ function calculateFRPStructuralSupport(inputs) {
     externalSupport = true  // Default to true
   } = inputs;
 
-  // External support provides structural beams and bend angles
-  if (!externalSupport) {
-    console.log('🔧 FRP External Support: OFF - no beams/structural components');
-    return { beams: [], roofSupport: [], bendAngles: [] };
-  }
-
   const lengthPanels = Math.ceil(length);
   const widthPanels = Math.ceil(width);
   const heightPanels = Math.ceil(height);
@@ -852,6 +847,56 @@ function calculateFRPStructuralSupport(inputs) {
   const beams = [];
   const roofSupport = [];
   const bendAngles = [];
+
+  // ===========================
+  // ROOF SUPPORT - ALWAYS included for FRP (BUG-008 FIX)
+  // These are essential roof components regardless of support selection
+  // ===========================
+
+  // ABS Roof Plate Support
+  const roofPlateQty = Math.ceil((lengthPanels * widthPanels) / 3);
+  roofSupport.push({
+    sku: 'OA100G012',
+    description: 'ABS Roof Plate Support',
+    quantity: roofPlateQty,
+    unitPrice: 0
+  });
+
+  // UPVC Roof Support (based on height)
+  const roofSupportSku = `RS${heightPanels}0-UPVC`;
+  roofSupport.push({
+    sku: roofSupportSku,
+    description: `${height}M UPVC Roof Support`,
+    quantity: roofPlateQty,
+    unitPrice: 0
+  });
+
+  // HDG Corner Angle
+  roofSupport.push({
+    sku: `CA-${heightPanels}0-FRP`,
+    description: `HDG Corner Angle ${height}M - FRP`,
+    quantity: 4,
+    unitPrice: 0
+  });
+
+  // SS304 Corner Cleat
+  roofSupport.push({
+    sku: 'CC-FRP-SS304',
+    description: 'SS304 Corner Cleat - FRP',
+    quantity: 4,
+    unitPrice: 0
+  });
+
+  console.log(`🏠 FRP Roof Support: ${roofSupport.length} items (always included)`);
+
+  // ===========================
+  // STRUCTURAL SUPPORT - Only when externalSupport is enabled
+  // ===========================
+
+  if (!externalSupport) {
+    console.log('🔧 FRP External Support: OFF - no beams/structural components');
+    return { beams: [], roofSupport, bendAngles: [] };
+  }
 
   // ===========================
   // MAIN BEAMS (SHS 50×50×4t)
@@ -890,47 +935,6 @@ function calculateFRPStructuralSupport(inputs) {
     sku: 'BSB-FRP',
     description: 'Skid Base Bracket - FRP',
     quantity: skidBaseQty,
-    unitPrice: 0
-  });
-
-  // ===========================
-  // ROOF SUPPORT
-  // ===========================
-
-  // ABS Roof Plate Support
-  const roofPlateQty = Math.ceil((lengthPanels * widthPanels) / 3);
-  roofSupport.push({
-    sku: 'OA100G012',
-    description: 'ABS Roof Plate Support',
-    quantity: roofPlateQty,
-    unitPrice: 0
-  });
-
-  // UPVC Roof Support (based on height)
-  const roofSupportSku = `RS${heightPanels}0-UPVC`;
-  roofSupport.push({
-    sku: roofSupportSku,
-    description: `${height}M UPVC Roof Support`,
-    quantity: roofPlateQty,
-    unitPrice: 0
-  });
-
-  // ===========================
-  // CORNER ANGLES
-  // ===========================
-
-  roofSupport.push({
-    sku: `CA-${heightPanels}0-FRP`,
-    description: `HDG Corner Angle ${height}M - FRP`,
-    quantity: 4,
-    unitPrice: 0
-  });
-
-  // SS304 Corner Cleat
-  roofSupport.push({
-    sku: 'CC-FRP-SS304',
-    description: 'SS304 Corner Cleat - FRP',
-    quantity: 4,
     unitPrice: 0
   });
 
