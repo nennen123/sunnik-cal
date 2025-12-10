@@ -1,6 +1,6 @@
 // app/calculator/components/QuoteSummary.js
-// Version: 1.2.0
-// Updated: Added Export PDF button
+// Version: 1.3.0
+// Updated: Fixed dimension display to use actual dimensions (dimensionMode conversion)
 
 'use client';
 
@@ -31,10 +31,29 @@ export default function QuoteSummary({ bom, inputs }) {
     'i': 'Imperial (4ft × 4ft)'
   };
 
-  const volume = inputs.length * inputs.width * inputs.height;
+  // Calculate actual dimensions based on dimension mode and panel type
+  const panelSize = inputs.panelType === 'i' ? 1.22 : 1.0;
+  const dimensionMode = inputs.dimensionMode || 'panel';
+
+  // Actual dimensions in meters
+  const actualLength = dimensionMode === 'panel' ? inputs.length * panelSize : inputs.length;
+  const actualWidth = dimensionMode === 'panel' ? inputs.width * panelSize : inputs.width;
+  const actualHeight = dimensionMode === 'panel' ? inputs.height * panelSize : inputs.height;
+
+  const volume = actualLength * actualWidth * actualHeight;
   const volumeLiters = volume * 1000;
-  const effectiveVolume = inputs.length * inputs.width * (inputs.height - (inputs.freeboard || 0.2));
+  const effectiveVolume = actualLength * actualWidth * (actualHeight - (inputs.freeboard || 0.2));
   const effectiveVolumeLiters = effectiveVolume * 1000;
+
+  // Format dimensions string
+  let dimensionsStr = `${actualLength.toFixed(actualLength % 1 === 0 ? 0 : 2)}m × ${actualWidth.toFixed(actualWidth % 1 === 0 ? 0 : 2)}m × ${actualHeight.toFixed(actualHeight % 1 === 0 ? 0 : 2)}m`;
+  if (inputs.panelType === 'i' && dimensionMode === 'panel') {
+    // For Imperial panels in panel mode, show feet too
+    const lengthFt = inputs.length * 4;
+    const widthFt = inputs.width * 4;
+    const heightFt = inputs.height * 4;
+    dimensionsStr = `${lengthFt}'×${widthFt}'×${heightFt}' (${actualLength.toFixed(2)}m×${actualWidth.toFixed(2)}m×${actualHeight.toFixed(2)}m)`;
+  }
 
   // Handle PDF Export
   const handleExportPDF = async () => {
@@ -85,7 +104,7 @@ export default function QuoteSummary({ bom, inputs }) {
             Dimensions
           </div>
           <div className="font-semibold text-sm">
-            {inputs.length}m × {inputs.width}m × {inputs.height}m
+            {dimensionsStr}
           </div>
         </div>
 

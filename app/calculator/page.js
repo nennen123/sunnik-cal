@@ -1,9 +1,9 @@
 'use client';
 
 // app/calculator/page.js
-// Version: 2.0.0
-// Updated: Phase 2 - Added partitionPositions state, stays/cleats price application
-// Preserved: All v1.2.2 functionality (Supabase pricing, buildStandard, etc.)
+// Version: 2.1.0
+// Updated: Added dimensionMode state for panel count vs meter input toggle
+// Preserved: Phase 2 functionality (partitionPositions, stays/cleats, Supabase pricing)
 
 import { useState, useEffect } from 'react';
 import { calculateBOM } from '../lib/bomCalculator';
@@ -18,6 +18,7 @@ export default function CalculatorPage() {
     width: 4,
     height: 3,
     freeboard: 0.2,  // Default 200mm in meters
+    dimensionMode: 'panel',  // 'panel' = panel count input, 'meter' = actual meter input
     panelType: 'm',
     panelTypeDetail: 1,  // Type 1 or Type 2
     material: 'SS316',
@@ -82,8 +83,9 @@ export default function CalculatorPage() {
     }
 
     try {
-      // DEBUG: Log buildStandard to verify it's being passed correctly
+      // DEBUG: Log key inputs to verify they're being passed correctly
       console.log('🔧 Calculating BOM with inputs:', inputs);
+      console.log('🔧 dimensionMode:', inputs.dimensionMode);
       console.log('🔧 buildStandard value:', inputs.buildStandard);
       console.log('🔧 panelTypeDetail (Type 1/2):', inputs.panelTypeDetail);
       console.log('🔧 partitionCount:', inputs.partitionCount);
@@ -200,6 +202,7 @@ export default function CalculatorPage() {
       width: 4,
       height: 3,
       freeboard: 0.2,
+      dimensionMode: 'panel',  // Reset to panel mode
       panelType: 'm',
       panelTypeDetail: 1,
       material: 'SS316',
@@ -360,4 +363,4 @@ export default function CalculatorPage() {
     </div>
   );
 }
-// Version 2.0.0 - Phase 2: Stay System Support
+// Version 2.1.0 - Added dimensionMode state + BUG-009 fix for narrow tank stays

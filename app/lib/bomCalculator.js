@@ -1,7 +1,8 @@
 // app/lib/bomCalculator.js
 // Sunnik Tank BOM Calculation Engine
-// Version: 1.3.0
+// Version: 1.4.0
 // FIXED:
+// - BUG-009: Narrow tanks (width <= 3 panels) now use HSO pattern, NO vertical stays
 // - BUG-005: FRP Panel Calculation
 // - BUG-006: Thickness code format (3.0mm → "3", not "30")
 // - BUG-007: 4.5mm doesn't exist, use 5.0mm instead
@@ -470,37 +471,52 @@ function calculateType2Stays(inputs) {
 
   // ==========================================
   // VERTICAL STAYS (VS)
+  // BUG-009 FIX: Narrow tanks (width <= 3 panels) use HSO pattern, NO vertical stays
+  // Wide tanks (width >= 4 panels) use VS pattern
   // ==========================================
 
-  // VS at corners: 4 corners, welded at bottom
-  stays.push({
-    sku: `2VS${sizeValue}${sizeUnit}W-${matCode}`,
-    description: `Vertical Stay ${sizeValue}${sizeUnit} Welded - Type 2 (corners)`,
-    quantity: 4,
-    unitPrice: 0
-  });
+  // Check if tank is narrow (width <= 3 panels for metric, <= 2 for imperial)
+  const isNarrowTank = isImperial ? widthPanels <= 2 : widthPanels <= 3;
 
-  // VS along walls: spans 2 tiers
-  if (heightPanels >= 2) {
-    const vsLength = sizeValue * 2; // 2-tier span
-    const vsQty = (lengthPanels + widthPanels) * 2; // All wall joints
+  // Only generate VS stays for WIDE tanks
+  if (!isNarrowTank) {
+    // VS at corners: 4 corners, welded at bottom
     stays.push({
-      sku: `2VS${vsLength}${sizeUnit}-${matCode}`,
-      description: `Vertical Stay ${vsLength}${sizeUnit} - Type 2 (2-tier span)`,
-      quantity: vsQty,
+      sku: `2VS${sizeValue}${sizeUnit}W-${matCode}`,
+      description: `Vertical Stay ${sizeValue}${sizeUnit} Welded - Type 2 (corners)`,
+      quantity: 4,
       unitPrice: 0
     });
+
+    // VS along walls: spans 2 tiers
+    if (heightPanels >= 2) {
+      const vsLength = sizeValue * 2; // 2-tier span
+      const vsQty = (lengthPanels + widthPanels) * 2; // All wall joints
+      stays.push({
+        sku: `2VS${vsLength}${sizeUnit}-${matCode}`,
+        description: `Vertical Stay ${vsLength}${sizeUnit} - Type 2 (2-tier span)`,
+        quantity: vsQty,
+        unitPrice: 0
+      });
+    }
   }
+  // For narrow tanks, HSO stays handle the bracing (generated below)
 
   // ==========================================
   // HSO STAYS (Opposite wall tie)
+  // BUG-009: Narrow tanks ALWAYS use HSO (replaces VS pattern)
+  // Wide tanks may also use HSO for additional bracing
   // ==========================================
 
-  if (needsHSO) {
+  // For narrow tanks, HSO is the primary bracing mechanism
+  // For wide tanks, HSO is additional support (original needsHSO logic)
+  if (isNarrowTank || needsHSO) {
     // HSO length = full width span
     const hsoLength = widthPanels * sizeValue;
-    // Quantity: (lengthPanels - 1) joints on both long sides
-    const hsoQty = (lengthPanels - 1) * 2;
+    // Quantity: (lengthPanels - 1) joints on both long sides × heightPanels tiers
+    // For narrow tanks, we need HSO on every tier
+    const hsoQtyPerTier = (lengthPanels - 1) * 2;
+    const hsoQty = isNarrowTank ? hsoQtyPerTier * heightPanels : hsoQtyPerTier;
 
     stays.push({
       sku: `2HSO${hsoLength}${sizeUnit}-${matCode}`,
@@ -524,9 +540,19 @@ function calculateType2Stays(inputs) {
       unitPrice: 0
     });
 
-    // Decision: VSP (space >= 2) vs HSOP (space < 2)
-    if (spaceToWall >= 2) {
-      // VSP: Vertical partition stay (tie to base)
+    // Welded partition stays for bottom tier
+    stays.push({
+      sku: `2HSP${sizeValue}${sizeUnit}W-${matCode}`,
+      description: `Horizontal Stay Partition ${sizeValue}${sizeUnit} Welded - Type 2 (bottom tier)`,
+      quantity: partitionCount * partitionSpanPanels,
+      unitPrice: 0
+    });
+
+    // BUG-009 FIX: For narrow tanks, use HSOP pattern (no VSP)
+    // For wide tanks with sufficient space, use VSP
+    // Decision: VSP (space >= 2 AND wide tank) vs HSOP (narrow or space < 2)
+    if (!isNarrowTank && spaceToWall >= 2) {
+      // VSP: Vertical partition stay (tie to base) - only for wide tanks
       const vspQty = partitionCount * Math.ceil(partitionSpanPanels / 2) * heightPanels;
       stays.push({
         sku: `2VSP${sizeValue}${sizeUnit}-${matCode}`,
@@ -536,7 +562,8 @@ function calculateType2Stays(inputs) {
       });
     } else {
       // HSOP: Horizontal OP partition (tie to opposite wall/partition)
-      const hsopLength = spaceToWall * sizeValue;
+      // Used for narrow tanks or when space to wall < 2 panels
+      const hsopLength = Math.max(1, spaceToWall) * sizeValue;
       const hsopQty = partitionCount * partitionSpanPanels * heightPanels;
       stays.push({
         sku: `2HSOP${hsopLength}${sizeUnit}-${matCode}`,

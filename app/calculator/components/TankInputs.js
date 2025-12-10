@@ -1,5 +1,7 @@
 // app/calculator/components/TankInputs.js
-// Version: 2.0.1
+// Version: 2.2.0
+// Fixed: dimensionMode now uses inputs state as source of truth (not local state)
+// Added: Dimension input mode toggle (panel count vs meter input)
 // Fixed: Material change bug (HDG/MS selection)
 // Updated: Smart partition positioning with auto-distribute and customize option
 // Preserved: ALL v1.2.0 functionality (WLI 6 options, BNW 6 options, Tank Finish, Pipe Fittings)
@@ -9,6 +11,9 @@ import { useState } from 'react';
 export default function TankInputs({ inputs, setInputs }) {
   // Local state for customize mode
   const [customizePartitions, setCustomizePartitions] = useState(false);
+
+  // Use inputs.dimensionMode as source of truth (default to 'panel' if not set)
+  const dimensionMode = inputs.dimensionMode || 'panel';
 
   const handleChange = (field, value) => {
     setInputs(prev => ({ ...prev, [field]: value }));
@@ -336,61 +341,124 @@ export default function TankInputs({ inputs, setInputs }) {
       {/* Tank Dimensions */}
       <div className="space-y-4">
         <h3 className="text-sm font-semibold text-gray-800 uppercase">
-          Tank Dimensions (Panels)
+          Tank Dimensions
         </h3>
-        <p className="text-xs text-gray-500">
-          {inputs.panelType === 'm'
-            ? `Actual size: ${inputs.length}m × ${inputs.width}m × ${inputs.height}m`
-            : `Actual size: ${(inputs.length * 1.22).toFixed(2)}m × ${(inputs.width * 1.22).toFixed(2)}m × ${(inputs.height * 1.22).toFixed(2)}m`
-          }
-        </p>
+
+        {/* Dimension Input Mode Toggle */}
+        <div className="mb-2">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Dimension Input Mode
+          </label>
+          <div className="flex gap-4">
+            <label className="flex items-center cursor-pointer">
+              <input
+                type="radio"
+                name="dimensionMode"
+                value="panel"
+                checked={dimensionMode === 'panel'}
+                onChange={() => handleChange('dimensionMode', 'panel')}
+                className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500"
+              />
+              <span className="text-sm text-gray-700">By Panel Count</span>
+            </label>
+            <label className="flex items-center cursor-pointer">
+              <input
+                type="radio"
+                name="dimensionMode"
+                value="meter"
+                checked={dimensionMode === 'meter'}
+                onChange={() => handleChange('dimensionMode', 'meter')}
+                className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500"
+              />
+              <span className="text-sm text-gray-700">By Meter</span>
+            </label>
+          </div>
+        </div>
+
+        {/* Actual dimensions summary */}
+        <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
+          <p className="text-xs text-blue-700 font-medium">
+            Actual Size: {dimensionMode === 'panel'
+              ? `${(inputs.length * panelSize).toFixed(2)}m × ${(inputs.width * panelSize).toFixed(2)}m × ${(inputs.height * panelSize).toFixed(2)}m`
+              : `${inputs.length}m × ${inputs.width}m × ${inputs.height}m`
+            }
+            {inputs.panelType === 'i' && dimensionMode === 'panel' && (
+              <span className="ml-2">
+                ({Math.round(inputs.length * 4)}ft × {Math.round(inputs.width * 4)}ft × {Math.round(inputs.height * 4)}ft)
+              </span>
+            )}
+          </p>
+          {dimensionMode === 'panel' && (
+            <p className="text-xs text-blue-600 mt-1">
+              Panel count: {inputs.length} × {inputs.width} × {inputs.height} panels
+            </p>
+          )}
+        </div>
 
         {/* Length */}
         <div>
           <label className="block text-sm text-gray-600 mb-1">
-            Length
+            Length {dimensionMode === 'panel' ? '(panels)' : '(meters)'}
           </label>
           <input
             type="number"
             min="1"
-            max="50"
-            step="0.1"
+            max={dimensionMode === 'panel' ? 50 : 60}
+            step={dimensionMode === 'panel' ? 1 : 0.1}
             value={inputs.length || ''}
             onChange={(e) => handleChange('length', parseFloat(e.target.value) || 0)}
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
+          {dimensionMode === 'panel' && (
+            <p className="text-xs text-gray-500 mt-1">
+              = {(inputs.length * panelSize).toFixed(2)}m
+              {inputs.panelType === 'i' && ` (${Math.round(inputs.length * 4)}ft)`}
+            </p>
+          )}
         </div>
 
         {/* Width */}
         <div>
           <label className="block text-sm text-gray-600 mb-1">
-            Width
+            Width {dimensionMode === 'panel' ? '(panels)' : '(meters)'}
           </label>
           <input
             type="number"
             min="1"
-            max="50"
-            step="0.1"
+            max={dimensionMode === 'panel' ? 50 : 60}
+            step={dimensionMode === 'panel' ? 1 : 0.1}
             value={inputs.width || ''}
             onChange={(e) => handleChange('width', parseFloat(e.target.value) || 0)}
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
+          {dimensionMode === 'panel' && (
+            <p className="text-xs text-gray-500 mt-1">
+              = {(inputs.width * panelSize).toFixed(2)}m
+              {inputs.panelType === 'i' && ` (${Math.round(inputs.width * 4)}ft)`}
+            </p>
+          )}
         </div>
 
         {/* Height */}
         <div>
           <label className="block text-sm text-gray-600 mb-1">
-            Height
+            Height {dimensionMode === 'panel' ? '(panels)' : '(meters)'}
           </label>
           <input
             type="number"
             min="1"
-            max="20"
-            step="0.1"
+            max={dimensionMode === 'panel' ? 20 : 25}
+            step={dimensionMode === 'panel' ? 1 : 0.1}
             value={inputs.height || ''}
             onChange={(e) => handleChange('height', parseFloat(e.target.value) || 0)}
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
+          {dimensionMode === 'panel' && (
+            <p className="text-xs text-gray-500 mt-1">
+              = {(inputs.height * panelSize).toFixed(2)}m
+              {inputs.panelType === 'i' && ` (${Math.round(inputs.height * 4)}ft)`}
+            </p>
+          )}
         </div>
 
         {/* Freeboard */}
@@ -1059,35 +1127,46 @@ export default function TankInputs({ inputs, setInputs }) {
       </div>
 
       {/* Volume Display */}
-      <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-        <div className="text-sm text-blue-800 font-medium mb-2">
-          Tank Capacity
-        </div>
+      {(() => {
+        // Calculate actual dimensions based on input mode
+        const actualLength = dimensionMode === 'panel' ? (inputs.length || 0) * panelSize : (inputs.length || 0);
+        const actualWidth = dimensionMode === 'panel' ? (inputs.width || 0) * panelSize : (inputs.width || 0);
+        const actualHeight = dimensionMode === 'panel' ? (inputs.height || 0) * panelSize : (inputs.height || 0);
+        const nominalVolume = actualLength * actualWidth * actualHeight;
+        const effectiveVolume = actualLength * actualWidth * (actualHeight - (inputs.freeboard || 0.2));
 
-        {/* Nominal Capacity */}
-        <div className="mb-2">
-          <div className="text-xs text-blue-600">Nominal (full height):</div>
-          <div className="text-xl font-bold text-blue-900">
-            {((inputs.length || 0) * (inputs.width || 0) * (inputs.height || 0) * 1000).toLocaleString()} L
-          </div>
-          <div className="text-xs text-blue-600">
-            {((inputs.length || 0) * (inputs.width || 0) * (inputs.height || 0)).toFixed(2)} m³
-          </div>
-        </div>
+        return (
+          <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+            <div className="text-sm text-blue-800 font-medium mb-2">
+              Tank Capacity
+            </div>
 
-        {/* Effective Capacity */}
-        <div className="pt-2 border-t border-blue-200">
-          <div className="text-xs text-blue-600">Effective (after freeboard):</div>
-          <div className="text-xl font-bold text-blue-900">
-            {((inputs.length || 0) * (inputs.width || 0) * ((inputs.height || 0) - (inputs.freeboard || 0.2)) * 1000).toLocaleString()} L
+            {/* Nominal Capacity */}
+            <div className="mb-2">
+              <div className="text-xs text-blue-600">Nominal (full height):</div>
+              <div className="text-xl font-bold text-blue-900">
+                {(nominalVolume * 1000).toLocaleString()} L
+              </div>
+              <div className="text-xs text-blue-600">
+                {nominalVolume.toFixed(2)} m³
+              </div>
+            </div>
+
+            {/* Effective Capacity */}
+            <div className="pt-2 border-t border-blue-200">
+              <div className="text-xs text-blue-600">Effective (after freeboard):</div>
+              <div className="text-xl font-bold text-blue-900">
+                {(effectiveVolume * 1000).toLocaleString()} L
+              </div>
+              <div className="text-xs text-blue-600">
+                {effectiveVolume.toFixed(2)} m³
+              </div>
+            </div>
           </div>
-          <div className="text-xs text-blue-600">
-            {((inputs.length || 0) * (inputs.width || 0) * ((inputs.height || 0) - (inputs.freeboard || 0.2))).toFixed(2)} m³
-          </div>
-        </div>
-      </div>
+        );
+      })()}
     </div>
   );
 }
-// Version 2.0.1 - Phase 2: Fixed material change + Smart partition positioning
+// Version 2.2.0 - Fixed dimensionMode state sync issue for PDF generation
 // Preserved: WLI 6 options, BNW 6 options, Tank Finish dropdowns, Pipe Fittings

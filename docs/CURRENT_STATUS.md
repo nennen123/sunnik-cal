@@ -1,26 +1,33 @@
 # Current Status - Tank Calculator
 
-**Last Updated:** 2025-11-27
-**Overall Progress:** 85% Complete
-**Critical Bugs:** 1 Medium Priority
-**Test Pass Rate:** 5/6 (83%)
-**Current Phase:** Bug Fixes & Refinement
+**Last Updated:** 2025-12-10
+**Overall Progress:** 90% Complete
+**Critical Bugs:** 0
+**Test Pass Rate:** 6/6 (100%)
+**Current Phase:** UI Improvements
 
 ---
 
 ## 🎯 What We're Working On NOW
 
-**Current Focus:** Bug fixes and calculator refinement
-**Recent Fixes (Nov 27, 2025):**
+**Current Focus:** UI improvements and polish
+**Recent Updates (Dec 10, 2025):**
+1. ✅ Added dimension input mode toggle (panel count vs meter input)
+2. ✅ Fixed PDF dimension display - now shows actual dimensions in meters (BUG-009 fix)
+3. ✅ Live conversion display shows panel count to meter conversion
+4. ✅ Volume calculation uses actual dimensions based on input mode
+
+**Previous Fixes:**
 1. ✅ Fixed freeboard input - now uses meters with 0.2m (200mm) default/minimum
 2. ✅ Fixed getThicknessByHeight - now tier-based calculation instead of hardcoded ranges
 3. ✅ Fixed partition panel SKU symbols - changed φ to ¢ to match database
 4. ✅ Supabase integration complete and working
+5. ✅ BUG-008: FRP Roof Support now always included regardless of support selection
 
 **Next Immediate Steps:**
-1. Test calculator with various tank configurations
-2. Verify pricing lookups match Supabase database
-3. Test PDF generation with new freeboard values
+1. Test new dimension input mode with various configurations
+2. Verify PDF output shows correct actual dimensions
+3. Test panel count vs meter mode conversions
 
 ---
 
@@ -437,7 +444,7 @@ CRITICAL ISSUES:
 2. Update "Current Focus" section
 3. Add CHANGELOG.md entry
 4. Commit changes
-
+2
 ---
 
 **Last Updated:** 2025-11-06

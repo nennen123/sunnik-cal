@@ -1,7 +1,7 @@
 // app/lib/pdfGenerator.js
 // Generate professional PDF quotes for Sunnik Tank BOM
-// Version: 1.2.1
-// Updated: Added Effective Volume display in PDF output
+// Version: 1.3.0
+// Updated: Fixed dimension display to show actual meters (BUG-009 fix)
 
 export async function generatePDF(bom, inputs) {
   // Dynamic imports for client-side only
@@ -91,17 +91,41 @@ export async function generatePDF(bom, inputs) {
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
 
-  const volume = inputs.length * inputs.width * inputs.height;
+  // Calculate actual dimensions based on dimension mode and panel type
+  const panelSize = inputs.panelType === 'm' ? 1.0 : 1.22;
+  const dimensionMode = inputs.dimensionMode || 'panel'; // Default to panel mode for backwards compatibility
+
+  // Calculate actual dimensions in meters
+  const actualLength = dimensionMode === 'panel' ? inputs.length * panelSize : inputs.length;
+  const actualWidth = dimensionMode === 'panel' ? inputs.width * panelSize : inputs.width;
+  const actualHeight = dimensionMode === 'panel' ? inputs.height * panelSize : inputs.height;
+
+  const volume = actualLength * actualWidth * actualHeight;
   const volumeLiters = volume * 1000;
-  const effectiveVolume = inputs.length * inputs.width * (inputs.height - (inputs.freeboard || 0.2));
+  const effectiveVolume = actualLength * actualWidth * (actualHeight - (inputs.freeboard || 0.2));
   const effectiveVolumeLiters = effectiveVolume * 1000;
 
   // Freeboard default is 200mm (0.2m) if not specified
   const freeboard = inputs.freeboard || 0.2;
   const freeboardMM = Math.round(freeboard * 1000);
 
+  // Format dimensions string based on panel type
+  let dimensionsStr = `${actualLength.toFixed(2)}m × ${actualWidth.toFixed(2)}m × ${actualHeight.toFixed(2)}m`;
+  if (inputs.panelType === 'i') {
+    // For Imperial panels, also show feet
+    const lengthFt = Math.round(actualLength / 0.3048);
+    const widthFt = Math.round(actualWidth / 0.3048);
+    const heightFt = Math.round(actualHeight / 0.3048);
+    dimensionsStr += ` (${lengthFt}'×${widthFt}'×${heightFt}')`;
+  }
+
+  // Panel count info for display
+  const panelCountStr = dimensionMode === 'panel'
+    ? `${inputs.length}×${inputs.width}×${inputs.height} panels`
+    : `~${Math.ceil(actualLength/panelSize)}×${Math.ceil(actualWidth/panelSize)}×${Math.ceil(actualHeight/panelSize)} panels`;
+
   const specs = [
-    { label: 'Dimensions:', value: `${inputs.length}m × ${inputs.width}m × ${inputs.height}m` },
+    { label: 'Dimensions:', value: dimensionsStr },
     { label: 'Nominal Volume:', value: `${volumeLiters.toLocaleString()} L (${volume.toFixed(2)} m³)` },
     { label: 'Effective Volume:', value: `${effectiveVolumeLiters.toLocaleString()} L (${freeboardMM}mm freeboard)` },
     { label: 'Material:', value: getMaterialName(inputs.material) },
@@ -361,7 +385,8 @@ export async function generatePDF(bom, inputs) {
 
   // === SAVE PDF ===
 
-  const fileName = `Sunnik_Quote_${quoteNumber}_${inputs.material}_${inputs.length}x${inputs.width}x${inputs.height}m.pdf`;
+  // Use actual dimensions for filename (calculated at top of function)
+  const fileName = `Sunnik_Quote_${quoteNumber}_${inputs.material}_${actualLength.toFixed(1)}x${actualWidth.toFixed(1)}x${actualHeight.toFixed(1)}m.pdf`;
   doc.save(fileName);
 
   return fileName;
