@@ -11,6 +11,7 @@ import { loadPrices, getPrice, getCacheStatus } from '../lib/supabasePriceLoader
 import TankInputs from './components/TankInputs';
 import BOMResults from './components/BOMResults';
 import QuoteSummary from './components/QuoteSummary';
+import { calculateCleats } from '../lib/cleatCalculator';
 
 export default function CalculatorPage() {
   const [inputs, setInputs] = useState({
@@ -94,6 +95,20 @@ export default function CalculatorPage() {
 
       // Calculate BOM structure
       const result = calculateBOM(inputs);
+
+      // Calculate cleats using validated cleatCalculator (v2.3.0)
+      if (inputs.material !== 'FRP') {
+        const cleatsResult = calculateCleats({
+          length: inputs.length,
+          width: inputs.width,
+          height: inputs.height,
+          panelType: inputs.panelType,
+          material: inputs.material,
+          tankType: parseInt(inputs.panelTypeDetail) || 2,
+          partitionCount: inputs.partitionCount || 0
+        });
+        result.cleats = cleatsResult;
+      }
 
       // Apply prices from Supabase to all BOM items
       const applyPrices = (items) => {
