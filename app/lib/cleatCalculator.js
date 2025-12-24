@@ -164,13 +164,24 @@ export function calculateCleats(inputs) {
   const W = Math.ceil(width / panelSize);
   const H = Math.ceil(height / panelSize);
 
-  // Material code for SKU
-  const materialCode = {
-    'SS316': 'SS316',
-    'SS304': 'SS304',
-    'HDG': 'HDG',
-    'MS': 'MS'
-  }[material] || 'HDG';
+  // Material code for SKU - different formats for different cleat types
+  const materialCode = material || 'HDG';
+
+  // Helper function to get correct CleatE/CleatEW SKU based on material
+  const getCleatESku = (isWelded) => {
+    const prefix = isWelded ? 'CleatEW' : 'CleatE';
+    switch (material) {
+      case 'SS316':
+        // SS316 uses thickness suffix, no welded variant in DB
+        return isWelded ? `CleatE3-SS316` : `CleatE25-SS316`;
+      case 'SS304':
+        // SS304 uses thickness suffix, no welded variant in DB
+        return isWelded ? `CleatE3-SS304` : `CleatE25-SS304`;
+      default:
+        // HDG and MS use standard format
+        return `${prefix}-${materialCode}`;
+    }
+  };
 
   const cleats = [];
 
@@ -179,7 +190,7 @@ export function calculateCleats(inputs) {
 
   if (CleatEW > 0) {
     cleats.push({
-      sku: `CleatEW-${materialCode}`,
+      sku: getCleatESku(true),
       description: `Cleat E Welded - 6mm`,
       quantity: CleatEW,
       unitPrice: 0
@@ -188,7 +199,7 @@ export function calculateCleats(inputs) {
 
   if (CleatE > 0) {
     cleats.push({
-      sku: `CleatE-${materialCode}`,
+      sku: getCleatESku(false),
       description: `Cleat E - 5mm`,
       quantity: CleatE,
       unitPrice: 0
