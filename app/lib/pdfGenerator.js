@@ -84,7 +84,7 @@ export async function generatePDF(bom, inputs) {
 
   // Specification box
   doc.setFillColor(lightGray[0], lightGray[1], lightGray[2]);
-  doc.roundedRect(margin, yPosition, pageWidth - 2 * margin, 32, 2, 2, 'F');
+  doc.roundedRect(margin, yPosition, pageWidth - 2 * margin, 42, 2, 2, 'F');
 
   // Specs content
   doc.setFontSize(9);
@@ -124,6 +124,16 @@ export async function generatePDF(bom, inputs) {
     ? `${inputs.length}×${inputs.width}×${inputs.height} panels`
     : `~${Math.ceil(actualLength/panelSize)}×${Math.ceil(actualWidth/panelSize)}×${Math.ceil(actualHeight/panelSize)} panels`;
 
+  // Determine support type display
+  const getSupportTypeDisplay = () => {
+    const hasInternal = inputs.internalSupport === true;
+    const hasExternal = inputs.externalSupport === true;
+    if (hasInternal && hasExternal) return 'Internal + External';
+    if (hasInternal) return 'Internal (Stay System)';
+    if (hasExternal) return 'External (I-Beam Frame)';
+    return 'None';
+  };
+
   const specs = [
     { label: 'Dimensions:', value: dimensionsStr },
     { label: 'Nominal Volume:', value: `${volumeLiters.toLocaleString()} L (${volume.toFixed(2)} m³)` },
@@ -131,7 +141,8 @@ export async function generatePDF(bom, inputs) {
     { label: 'Material:', value: getMaterialName(inputs.material) },
     { label: 'Build Standard:', value: getBuildStandardName(inputs.buildStandard) },
     { label: 'Panel Type:', value: `${inputs.panelType === 'm' ? 'Metric (1m)' : 'Imperial (4ft)'} Type ${inputs.panelTypeDetail || 1}` },
-    { label: 'Partitions:', value: inputs.partitionCount > 0 ? `${inputs.partitionCount}` : 'None' }
+    { label: 'Partitions:', value: inputs.partitionCount > 0 ? `${inputs.partitionCount}` : 'None' },
+    { label: 'Support:', value: getSupportTypeDisplay() }
   ];
 
   let specY = yPosition + 5;
@@ -149,7 +160,7 @@ export async function generatePDF(bom, inputs) {
     doc.text(spec.value, x + labelWidth + 2, y);
   });
 
-  yPosition += 48;
+  yPosition += 58;
 
   // === BILL OF MATERIALS SECTION ===
 

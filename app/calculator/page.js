@@ -30,8 +30,8 @@ export default function CalculatorPage() {
     partitionPositions: null,  // Array of panel positions (null = auto-distribute)
     // Existing fields
     roofThickness: 1.5,
-    internalSupport: false,
-    externalSupport: true,  // Default ON for FRP tanks
+    internalSupport: true,   // Default ON for steel tanks (stay system)
+    externalSupport: false,  // Default OFF (user enables if needed)
     iBeamSize: '150x75',
     wliMaterial: 'Ball Type',
     internalLadderQty: 1,
@@ -228,7 +228,7 @@ export default function CalculatorPage() {
       partitionPositions: null,
       // Existing
       roofThickness: 1.5,
-      internalSupport: false,
+      internalSupport: true,
       externalSupport: false,
       iBeamSize: '150x75',
       wliMaterial: 'Ball Type',

@@ -55,6 +55,16 @@ export default function QuoteSummary({ bom, inputs }) {
     dimensionsStr = `${lengthFt}'×${widthFt}'×${heightFt}' (${actualLength.toFixed(2)}m×${actualWidth.toFixed(2)}m×${actualHeight.toFixed(2)}m)`;
   }
 
+  // Helper function to get support type display
+  const getSupportTypeDisplay = () => {
+    const hasInternal = inputs.internalSupport === true;
+    const hasExternal = inputs.externalSupport === true;
+    if (hasInternal && hasExternal) return 'Internal + External';
+    if (hasInternal) return 'Internal';
+    if (hasExternal) return 'External';
+    return 'None';
+  };
+
   // Handle PDF Export
   const handleExportPDF = async () => {
     setIsExporting(true);
@@ -145,6 +155,16 @@ export default function QuoteSummary({ bom, inputs }) {
           </div>
           <div className="font-semibold text-sm">
             {inputs.partitionCount > 0 ? inputs.partitionCount : 'None'}
+          </div>
+        </div>
+
+        {/* Support */}
+        <div className="bg-white bg-opacity-10 rounded-lg p-3">
+          <div className="text-xs uppercase tracking-wide text-blue-200 mb-1">
+            Support
+          </div>
+          <div className="font-semibold text-sm">
+            {getSupportTypeDisplay()}
           </div>
         </div>
 
