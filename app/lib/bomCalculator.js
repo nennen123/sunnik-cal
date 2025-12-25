@@ -1,6 +1,12 @@
 // app/lib/bomCalculator.js
 // Sunnik Tank BOM Calculation Engine
-// Version: 2.2.1
+// Version: 2.3.2
+//
+// CHANGES v2.3.2 (December 25, 2025):
+// - Fixed FRP sidewall tier depth codes (each tier now has correct water pressure rating)
+// - Added getFRPTierDepthCode() function for tier-specific panel selection
+// - Bottom tier = highest code (S40), top tier = lowest code (S10)
+// - Based on FRP Panel Arrangement engineering drawing (Dec 2024)
 //
 // CHANGES v2.2.1 (December 18, 2025):
 // - Complete rewrite of Type 1 stay formulas
@@ -1062,6 +1068,57 @@ function getFRPTiers(heightMeters) {
 }
 
 /**
+ * Get FRP sidewall depth code for specific tier position
+ * Based on engineering drawing: Sidewall Arrangement (Dec 2024)
+ *
+ * Key principle: Bottom tiers handle more water pressure = higher code number
+ * Code number represents water depth at that panel level
+ *
+ * @param {number} tankHeight - Total tank height in meters
+ * @param {number} tierIndex - 0-based tier index (0 = bottom tier)
+ * @returns {string} Depth code (e.g., "40", "30", "20", "10")
+ */
+function getFRPTierDepthCode(tankHeight, tierIndex) {
+  // Tier stacking patterns from engineering drawing (Image 2)
+  // Format: [bottom tier, ..., top tier]
+  const tierPatterns = {
+    1.0: ['10'],
+    1.5: ['15'],  // D15 special half-height panel
+    2.0: ['20', '10'],
+    2.5: ['25', '20'],
+    3.0: ['30', '20', '10'],
+    3.5: ['35', '25', '15', '10'],  // H10 at top for 3.5m
+    4.0: ['40', '30', '20', '10']
+  };
+
+  // Round height to nearest 0.5m for lookup
+  const roundedHeight = Math.round(tankHeight * 2) / 2;
+
+  // Get pattern for this height, default to 4.0m pattern for larger tanks
+  let pattern;
+  if (roundedHeight <= 4.0) {
+    pattern = tierPatterns[roundedHeight] || tierPatterns[4.0];
+  } else {
+    // For tanks > 4m (special request), extrapolate pattern
+    // Start at 40 for bottom, decrease by 10 per tier, minimum 10
+    const numTiers = Math.ceil(tankHeight);
+    pattern = [];
+    for (let i = 0; i < numTiers; i++) {
+      const code = Math.max(10, 40 - (i * 10));
+      pattern.push(String(code).padStart(2, '0'));
+    }
+  }
+
+  // Return code for requested tier (0-indexed)
+  // If tierIndex exceeds pattern length, use top tier code
+  if (tierIndex >= pattern.length) {
+    return pattern[pattern.length - 1];
+  }
+
+  return pattern[tierIndex];
+}
+
+/**
  * Calculate FRP tank BOM
  * FRP uses completely different panel system than steel
  *
@@ -1213,7 +1270,7 @@ export function calculateFRPBOM(inputs) {
 
   // For each full 1m tier
   for (let tier = 1; tier <= fullTiers; tier++) {
-    const tierDepthCode = getFRPDepthCode(height); // Use tank depth for all tiers
+    const tierDepthCode = getFRPTierDepthCode(height, tier - 1); // Tier-specific depth code (0-indexed)
     const isBottomTier = (tier === 1);
 
     // Small tank wall handling for FRP
@@ -1316,19 +1373,20 @@ export function calculateFRPBOM(inputs) {
 
   if (partitionCount > 0) {
     for (let tier = 1; tier <= fullTiers; tier++) {
-      const tierDepthCode = getFRPDepthCode(height);
+      // Partition panels use tier-specific depth code (same as sidewalls)
+      const partitionDepthCode = getFRPTierDepthCode(height, tier - 1);
 
       // Partition corner panels (P-BCL, P-BCR)
       bom.partition.push({
-        sku: `3P${tierDepthCode}-FRP-BCL`,
-        description: `FRP Partition P${tierDepthCode}-BCL - Tier ${tier} Corner Left`,
+        sku: `3P${partitionDepthCode}-FRP-BCL`,
+        description: `FRP Partition P${partitionDepthCode}-BCL - Tier ${tier} Corner Left`,
         quantity: partitionCount,
         unitPrice: 0
       });
 
       bom.partition.push({
-        sku: `3P${tierDepthCode}-FRP-BCR`,
-        description: `FRP Partition P${tierDepthCode}-BCR - Tier ${tier} Corner Right`,
+        sku: `3P${partitionDepthCode}-FRP-BCR`,
+        description: `FRP Partition P${partitionDepthCode}-BCR - Tier ${tier} Corner Right`,
         quantity: partitionCount,
         unitPrice: 0
       });
@@ -1337,8 +1395,8 @@ export function calculateFRPBOM(inputs) {
       const mainPartitionCount = Math.max(0, partitionSpan - 2) * partitionCount;
       if (mainPartitionCount > 0) {
         bom.partition.push({
-          sku: `3P${tierDepthCode}-FRP`,
-          description: `FRP Partition P${tierDepthCode} - Tier ${tier}`,
+          sku: `3P${partitionDepthCode}-FRP`,
+          description: `FRP Partition P${partitionDepthCode} - Tier ${tier}`,
           quantity: mainPartitionCount,
           unitPrice: 0
         });
