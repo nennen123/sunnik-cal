@@ -1,6 +1,13 @@
 // app/lib/bomCalculator.js
 // Sunnik Tank BOM Calculation Engine
-// Version: 2.3.2
+// Version: 2.3.3
+//
+// CHANGES v2.3.3 (December 26, 2025):
+// - Added getFRPStayPlateConfig() for height-based stay plate selection
+// - Added getFRPEndStudConfig() for proper stud length calculation
+// - End studs now show actual length in mm (span - 420mm for fittings)
+// - Long span studs (>5.8m) now include joint couplers
+// - Stay plates now height-dependent: 1m=none, 1.5m=cleat, 2-2.5m=2H, 3-3.5m=2H+cleat, 4m+=2H+4H+cleat
 //
 // CHANGES v2.3.2 (December 25, 2025):
 // - Fixed FRP sidewall tier depth codes (each tier now has correct water pressure rating)
@@ -553,7 +560,7 @@ function calculateFRPTieRods(inputs) {
   const partitionComponents = [];
 
   // ===========================
-  // END STUDS
+  // END STUDS (using getFRPEndStudConfig for proper lengths)
   // Formula: (joints × height × 4) with scaling for larger tanks
   // Each panel joint has 4 stud positions (2 per side × 2 walls)
   // ===========================
@@ -562,11 +569,13 @@ function calculateFRPTieRods(inputs) {
   // These studs span the LENGTH of the tank
   const lengthJoints = widthPanels - 1;
   let lengthStudQty = lengthJoints * heightPanels * 4;
+  const lengthStudConfig = getFRPEndStudConfig(length);
 
   // Width direction studs (go through length walls)
   // These studs span the WIDTH of the tank
   const widthJoints = lengthPanels - 1;
   let widthStudQty = widthJoints * heightPanels * 4;
+  const widthStudConfig = getFRPEndStudConfig(width);
 
   // Scale up for larger tanks (>5m in any dimension)
   if (length > 5 || width > 5 || height > 4) {
@@ -577,43 +586,75 @@ function calculateFRPTieRods(inputs) {
   // Add length direction studs
   if (lengthStudQty > 0) {
     tieRods.push({
-      sku: `TR-FRP-${Math.round(length)}M-SS304`,
-      description: `End Stud M10 × ${Math.round(length)}M - SS304 (length direction)`,
+      sku: lengthStudConfig.studSKU,
+      description: `End Stud M10 × ${lengthStudConfig.studLengthMM}mm - SS304 (length direction)${lengthStudConfig.needsJoint ? ' [JOINTED]' : ''}`,
       quantity: lengthStudQty,
       unitPrice: 0
     });
+
+    // Add stud joints if needed for long spans
+    if (lengthStudConfig.needsJoint) {
+      tieRods.push({
+        sku: lengthStudConfig.jointSKU,
+        description: 'FRP Tie Rod Joint Coupler - SS304',
+        quantity: lengthStudQty * lengthStudConfig.jointQty,
+        unitPrice: 0
+      });
+    }
   }
 
   // Add width direction studs
   if (widthStudQty > 0) {
     tieRods.push({
-      sku: `TR-FRP-${Math.round(width)}M-SS304`,
-      description: `End Stud M10 × ${Math.round(width)}M - SS304 (width direction)`,
+      sku: widthStudConfig.studSKU,
+      description: `End Stud M10 × ${widthStudConfig.studLengthMM}mm - SS304 (width direction)${widthStudConfig.needsJoint ? ' [JOINTED]' : ''}`,
       quantity: widthStudQty,
+      unitPrice: 0
+    });
+
+    // Add stud joints if needed for long spans
+    if (widthStudConfig.needsJoint) {
+      tieRods.push({
+        sku: widthStudConfig.jointSKU,
+        description: 'FRP Tie Rod Joint Coupler - SS304',
+        quantity: widthStudQty * widthStudConfig.jointQty,
+        unitPrice: 0
+      });
+    }
+  }
+
+  // ===========================
+  // STAY PLATES (using getFRPStayPlateConfig for height-based selection)
+  // ===========================
+
+  const stayPlateConfig = getFRPStayPlateConfig(height, perimeter);
+
+  // 2H Stay Plates (if needed for this height)
+  if (stayPlateConfig.use2H && stayPlateConfig.qty2H > 0) {
+    stayPlates.push({
+      sku: 'StayPlate2H-HDG',
+      description: 'HDG Stay Plate 2H',
+      quantity: stayPlateConfig.qty2H,
       unitPrice: 0
     });
   }
 
-  // ===========================
-  // STAY PLATES (Internal support connections)
-  // ===========================
-
-  // 2H Stay Plates: perimeter × 1.5 (refined formula)
-  const stayPlate2HQty = Math.ceil(perimeter * 1.5);
-  stayPlates.push({
-    sku: 'StayPlate2H-HDG',
-    description: 'HDG Stay Plate 2H',
-    quantity: stayPlate2HQty,
-    unitPrice: 0
-  });
-
-  // 4H Stay Plates: only for tanks 4m+ height
-  if (heightPanels >= 4) {
-    const stayPlate4HQty = Math.ceil(perimeter * (heightPanels / 4) * 1.7);
+  // 4H Stay Plates (only for 4m+ tanks)
+  if (stayPlateConfig.use4H && stayPlateConfig.qty4H > 0) {
     stayPlates.push({
       sku: 'StayPlate4H-HDG',
       description: 'HDG Stay Plate 4H',
-      quantity: stayPlate4HQty,
+      quantity: stayPlateConfig.qty4H,
+      unitPrice: 0
+    });
+  }
+
+  // Corner Cleats (for 1.5m+ tanks)
+  if (stayPlateConfig.useCornerCleat && stayPlateConfig.qtyCornerCleat > 0) {
+    stayPlates.push({
+      sku: 'CC-FRP-HDG',
+      description: 'FRP Corner Cleat C - HDG',
+      quantity: stayPlateConfig.qtyCornerCleat,
       unitPrice: 0
     });
   }
@@ -1116,6 +1157,99 @@ function getFRPTierDepthCode(tankHeight, tierIndex) {
   }
 
   return pattern[tierIndex];
+}
+
+/**
+ * Get FRP Stay Plate configuration based on tank height
+ * Different heights require different plate combinations
+ *
+ * @param {number} heightMeters - Tank height in meters
+ * @param {number} perimeter - Tank perimeter in panels
+ * @returns {Object} Configuration with plate types and quantities
+ */
+function getFRPStayPlateConfig(heightMeters, perimeter) {
+  const config = {
+    use2H: false,
+    use4H: false,
+    useCornerCleat: false,
+    qty2H: 0,
+    qty4H: 0,
+    qtyCornerCleat: 0
+  };
+
+  if (heightMeters <= 1.0) {
+    // No plates needed for 1m tanks
+    return config;
+  }
+
+  if (heightMeters <= 1.5) {
+    // 1.5m: Corner Cleat only
+    config.useCornerCleat = true;
+    config.qtyCornerCleat = 4;
+    return config;
+  }
+
+  if (heightMeters <= 2.5) {
+    // 2.0-2.5m: 2H only
+    config.use2H = true;
+    config.qty2H = Math.ceil(perimeter * 0.75);
+    return config;
+  }
+
+  if (heightMeters <= 3.5) {
+    // 3.0-3.5m: 2H + Corner Cleat
+    config.use2H = true;
+    config.useCornerCleat = true;
+    config.qty2H = Math.ceil(perimeter * 1.2);
+    config.qtyCornerCleat = 4;
+    return config;
+  }
+
+  // 4.0m+: 2H + 4H + Corner Cleat (full formulas)
+  config.use2H = true;
+  config.use4H = true;
+  config.useCornerCleat = true;
+  config.qty2H = Math.ceil(perimeter * 1.5);
+  config.qty4H = Math.ceil(perimeter * (Math.ceil(heightMeters) / 4) * 1.7);
+  config.qtyCornerCleat = 4;
+
+  return config;
+}
+
+/**
+ * Get FRP End Stud configuration for a given span
+ * Calculates proper stud length and determines if joints are needed
+ *
+ * @param {number} spanMeters - Span length in meters
+ * @returns {Object} Configuration with studLength, SKU, needsJoint, jointQty
+ */
+function getFRPEndStudConfig(spanMeters) {
+  // Stud length formula: (span in mm) - 420mm for end fittings
+  const studLengthMM = Math.round(spanMeters * 1000) - 420;
+  const maxLengthMM = 5800; // Maximum single stud length
+
+  const config = {
+    studLengthMM: studLengthMM,
+    studLengthM: studLengthMM / 1000,
+    needsJoint: false,
+    jointQty: 0,
+    studSKU: '',
+    jointSKU: 'TRJ-FRP-SS304'
+  };
+
+  if (studLengthMM <= maxLengthMM) {
+    // Single stud, no joint needed
+    config.studSKU = `TR-FRP-${Math.round(spanMeters)}M-SS304`;
+  } else {
+    // Need jointed studs for spans > ~6.2m (stud length > 5800mm)
+    config.needsJoint = true;
+    // Use 11M max length studs with joints for longer spans
+    config.studSKU = 'TR-FRP-11M-SS304';
+    // Calculate number of joints: ceil((span - 11) / 6)
+    config.jointQty = Math.max(1, Math.ceil((spanMeters - 11) / 6));
+  }
+
+  return config;
 }
 
 /**
