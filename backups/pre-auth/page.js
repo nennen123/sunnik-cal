@@ -12,11 +12,8 @@ import TankInputs from './components/TankInputs';
 import BOMResults from './components/BOMResults';
 import QuoteSummary from './components/QuoteSummary';
 import { calculateCleats } from '../lib/cleatCalculator';
-import ProtectedRoute from '../components/ProtectedRoute';
-import { useAuth } from '../context/AuthContext';
 
 export default function CalculatorPage() {
-  const { user, signOut } = useAuth();
   const [inputs, setInputs] = useState({
     length: 5,
     width: 4,
@@ -251,7 +248,6 @@ export default function CalculatorPage() {
   const cacheStatus = getCacheStatus();
 
   return (
-    <ProtectedRoute>
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white shadow-sm border-b border-gray-200">
@@ -266,42 +262,30 @@ export default function CalculatorPage() {
               </p>
             </div>
 
-            <div className="flex items-center gap-6">
-              <div className="text-right">
-                {loading && (
-                  <p className="text-sm text-yellow-600">
-                    Loading price database...
+            <div className="text-right">
+              {loading && (
+                <p className="text-sm text-yellow-600">
+                  ⏳ Loading price database...
+                </p>
+              )}
+              {error && (
+                <p className="text-sm text-red-600">
+                  ❌ Error: {error}
+                </p>
+              )}
+              {prices && !loading && !error && (
+                <div className="text-sm">
+                  <p className="text-green-600 font-medium">
+                    ✓ {Object.keys(prices).length.toLocaleString()} SKUs loaded from Supabase
                   </p>
-                )}
-                {error && (
-                  <p className="text-sm text-red-600">
-                    Error: {error}
-                  </p>
-                )}
-                {prices && !loading && !error && (
-                  <div className="text-sm">
-                    <p className="text-green-600 font-medium">
-                      {Object.keys(prices).length.toLocaleString()} SKUs loaded
+                  {cacheStatus.cached && (
+                    <p className="text-gray-500 text-xs mt-1">
+                      Cache: {(cacheStatus.age / 1000).toFixed(0)}s old,
+                      expires in {(cacheStatus.expires / 1000).toFixed(0)}s
                     </p>
-                    {cacheStatus.cached && (
-                      <p className="text-gray-500 text-xs mt-1">
-                        Cache: {(cacheStatus.age / 1000).toFixed(0)}s old
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* User info and logout */}
-              <div className="flex items-center gap-3 pl-6 border-l border-gray-200">
-                <span className="text-sm text-gray-600">{user?.email}</span>
-                <button
-                  onClick={signOut}
-                  className="text-sm text-red-600 hover:text-red-700 font-medium"
-                >
-                  Logout
-                </button>
-              </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -392,7 +376,6 @@ export default function CalculatorPage() {
         </div>
       </div>
     </div>
-    </ProtectedRoute>
   );
 }
-// Version 2.2.0 - Added authentication with ProtectedRoute wrapper
+// Version 2.1.0 - Added dimensionMode state + BUG-009 fix for narrow tank stays
