@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
 
@@ -8,14 +8,21 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [formLoading, setFormLoading] = useState(false);
   const router = useRouter();
-  const { signIn } = useAuth();
+  const { user, loading: authLoading, signIn } = useAuth();
+
+  // Redirect to calculator if already logged in
+  useEffect(() => {
+    if (!authLoading && user) {
+      router.push('/calculator');
+    }
+  }, [user, authLoading, router]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    setLoading(true);
+    setFormLoading(true);
 
     try {
       await signIn(email, password);
@@ -23,9 +30,33 @@ export default function LoginPage() {
     } catch (err) {
       setError(err.message || 'Failed to sign in');
     } finally {
-      setLoading(false);
+      setFormLoading(false);
     }
   };
+
+  // Show loading while checking auth state
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If already logged in, show loading (will redirect via useEffect)
+  if (user) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Redirecting...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
@@ -79,14 +110,14 @@ export default function LoginPage() {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={formLoading}
               className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-semibold text-white ${
-                loading
+                formLoading
                   ? 'bg-gray-400 cursor-not-allowed'
                   : 'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
               }`}
             >
-              {loading ? 'Signing in...' : 'Sign In'}
+              {formLoading ? 'Signing in...' : 'Sign In'}
             </button>
           </form>
 
