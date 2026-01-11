@@ -1,33 +1,18 @@
 // app/lib/bomCalculator.js
 // Sunnik Tank BOM Calculation Engine
-// Version: 2.3.3
-//
-// CHANGES v2.3.3 (December 26, 2025):
-// - Added getFRPStayPlateConfig() for height-based stay plate selection
-// - Added getFRPEndStudConfig() for proper stud length calculation
-// - End studs now show actual length in mm (span - 420mm for fittings)
-// - Long span studs (>5.8m) now include joint couplers
-// - Stay plates now height-dependent: 1m=none, 1.5m=cleat, 2-2.5m=2H, 3-3.5m=2H+cleat, 4m+=2H+4H+cleat
-//
-// CHANGES v2.3.2 (December 25, 2025):
-// - Fixed FRP sidewall tier depth codes (each tier now has correct water pressure rating)
-// - Added getFRPTierDepthCode() function for tier-specific panel selection
-// - Bottom tier = highest code (S40), top tier = lowest code (S10)
-// - Based on FRP Panel Arrangement engineering drawing (Dec 2024)
-//
-// CHANGES v2.2.1 (December 18, 2025):
-// - Complete rewrite of Type 1 stay formulas
-// - Complete rewrite of Type 2 stay formulas
-// - Added S2M separation for wide tanks (upper tiers)
-// - Fixed narrow vs wide tank logic for Type 1
-// - Added OP stay distribution by tier type
-// - Fixed SP count formula for partition tanks
-// - Fixed roof tier formulas
-// - Validated against 10 engineering drawings (100% accuracy)
-//
-// VALIDATED TANKS:
-// Type 1: 4m×4m×4m, 16'×8'×12'+1SP, 12'×12'×8', 16'×8'×12', 20'×12'×16'+1SP, 6m×4m×3m+1SP
-// Type 2: 4×4×4, 6×4×4, 4×4×4+1SP, 6×4×4+1SP
+// Version: 1.4.0
+// FIXED:
+// - BUG-009: Narrow tanks (width <= 3 panels) now use HSO pattern, NO vertical stays
+// - BUG-005: FRP Panel Calculation
+// - BUG-006: Thickness code format (3.0mm → "3", not "30")
+// - BUG-007: 4.5mm doesn't exist, use 5.0mm instead
+// - Type 2 Panel Support with tier-based diameter (Ø18 bottom, Ø14 upper)
+// - NEW: Build standard-specific thickness (SANS vs BSI/LPCB)
+// - NEW: FRP build standard differences (MS1390 vs SS245)
+// - NEW: LPCB includes Vortex Pipe as standard
+// - BUG-014: Small tank handling (1×1, 2×2, etc. now calculate correctly)
+//   - 1×1×1 = 6 panels (was 14), 2×2×1 = 16 panels, 3×3×1 = 30 panels
+// - BUG-015: Partition main panels use Math.max(0,...) instead of Math.max(1,...)
 
 // ============================================
 // BUILD STANDARDS CONFIGURATION
@@ -220,306 +205,452 @@ function getPurlinQuantity(opTrussCount, lengthPanels) {
 }
 
 // ============================================
-// STAY CALCULATION FUNCTIONS - v2.2.1
-// Validated against 10 engineering drawings (Dec 18, 2025)
+// STAY CALCULATION FUNCTIONS - Phase 2
 // ============================================
 
 /**
- * Calculate tier distribution
- * @param {number} H - Height in panels
- * @returns {object} { doubleTiers, singleTiers, hasWelded }
- */
-function getTierDistribution(H) {
-  const doubleTiers = Math.max(0, H - 2);
-  const singleTiers = Math.min(H, 2);
-  const hasWelded = (H >= 4);
-  return { doubleTiers, singleTiers, hasWelded };
-}
-
-/**
- * Calculate corner and middle positions
- * @param {number} L - Length in panels
- * @param {number} W - Width in panels
- * @returns {object} { corners, longWallMiddles, shortWallMiddles, totalMiddles }
- */
-function getPositions(L, W) {
-  const corners = 4;
-  const longWallMiddles = Math.max(0, (L - 1) - 2) * 2;
-  const shortWallMiddles = Math.max(0, (W - 1) - 2) * 2;
-  const totalMiddles = longWallMiddles + shortWallMiddles;
-  return { corners, longWallMiddles, shortWallMiddles, totalMiddles };
-}
-
-/**
- * Calculate Type 1 stays (S, SP, OP, OT)
- * Validated: 6 tanks at 100% accuracy
+ * Calculate Type 1 stays (S, OP, POP)
+ * Type 1 uses simpler S-stays and OP-stays
+ *
+ * Stay Logic (from engineering drawings):
+ * - S-stays: Tie wall panels to BASE when space available
+ * - OP-stays: Tie wall panels to OPPOSITE WALL when base tie not possible
+ * - POP-stays: Partition OP stays
+ *
+ * @param {Object} inputs - Tank configuration
+ * @returns {Object} { stays: [], cleats: [] }
  */
 function calculateType1Stays(inputs) {
   const {
-    length, width, height, panelType, material,
-    partitionCount = 0, partitionDirection = 'width', internalSupport = false
+    length,
+    width,
+    height,
+    panelType,
+    material,
+    partitionCount = 0,
+    partitionDirection = 'width',
+    internalSupport = false
   } = inputs;
 
-  if (!internalSupport) return { stays: [], cleats: [] };
+  // If internal support not enabled, return empty
+  if (!internalSupport) {
+    return { stays: [], cleats: [] };
+  }
 
   const isImperial = panelType === 'i';
   const panelSize = isImperial ? 1.22 : 1.0;
-  const sizeUnit = isImperial ? 'ft' : 'M';
-  const sizeValue = isImperial ? '4' : '1';
+  const sizeUnit = isImperial ? 'ft' : 'm';
+  const sizeValue = isImperial ? 4 : 1;
 
-  const L = Math.ceil(length / panelSize);
-  const W = Math.ceil(width / panelSize);
-  const H = Math.ceil(height / panelSize);
+  const lengthPanels = Math.ceil(length / panelSize);
+  const widthPanels = Math.ceil(width / panelSize);
+  const heightPanels = Math.ceil(height / panelSize);
 
+  // Material code for stays
   const matCode = material === 'SS316' ? 'SS316' :
                   material === 'SS304' ? 'SS304' :
                   material === 'HDG' ? 'HDG' : 'MS';
 
-  const { doubleTiers, hasWelded } = getTierDistribution(H);
-  const { corners, totalMiddles } = getPositions(L, W);
-
-  const isNarrow = W <= 2;
-  const hasPartition = partitionCount > 0;
-
-  let stayQty = {};
-
-  // SKU definitions
-  const s1WSKU = `S${sizeValue}${sizeUnit}W-${matCode}`;
-  const s1SKU = `S${sizeValue}${sizeUnit}-${matCode}`;
-  const s2SKU = isImperial ? `S8ft-${matCode}` : `S2M-${matCode}`;
-  const spSKU = `SP${sizeValue}${sizeUnit}-${matCode}`;
-  const spWSKU = `SP${sizeValue}${sizeUnit}W-${matCode}`;
-  const widthValue = isImperial ? W * 4 : W;
-  const opSKU = `OP${widthValue}${isImperial ? 'ft' : 'M'}-${matCode}`;
-  const popSKU = `POP${widthValue}${isImperial ? 'ft' : 'M'}-${matCode}`;
-  const otSKU = `T1-OT-${matCode}-${widthValue}${isImperial ? 'ft' : 'M'}`;
-  const potSKU = `T1-POT-${matCode}-${widthValue}${isImperial ? 'ft' : 'M'}`;
-
-  for (let tier = 1; tier <= H; tier++) {
-    const isDouble = tier <= doubleTiers;
-    const isTier1 = tier === 1;
-    const isRoof = tier === H;
-    const useWelded = hasWelded && isTier1;
-    const sSKU = useWelded ? s1WSKU : s1SKU;
-    const partSKU = useWelded ? spWSKU : spSKU;
-
-    if (hasPartition) {
-      if (isNarrow) {
-        if (isRoof) {
-          stayQty[sSKU] = (stayQty[sSKU] || 0) + Math.ceil((corners + totalMiddles) / 2);
-          stayQty[opSKU] = (stayQty[opSKU] || 0) + 2;
-        } else {
-          stayQty[sSKU] = (stayQty[sSKU] || 0) + corners + totalMiddles;
-          stayQty[partSKU] = (stayQty[partSKU] || 0) + 2;
-        }
-      } else {
-        if (isTier1) {
-          const displacement = W >= 4 ? 2 : 4;
-          stayQty[sSKU] = (stayQty[sSKU] || 0) + (corners * 3) + (totalMiddles * 2) - displacement;
-          stayQty[partSKU] = (stayQty[partSKU] || 0) + (W >= 4 ? (W + 1) : 2);
-        } else if (isDouble) {
-          stayQty[sSKU] = (stayQty[sSKU] || 0) + (corners * 2) + totalMiddles - 2;
-          stayQty[partSKU] = (stayQty[partSKU] || 0) + 2;
-        } else if (isRoof) {
-          stayQty[sSKU] = (stayQty[sSKU] || 0) + corners + 2;
-          if (W >= 4) stayQty[partSKU] = (stayQty[partSKU] || 0) + 2;
-          const otCount = H === 2 ? 2 : (H >= 4 ? 2 : 3);
-          stayQty[otSKU] = (stayQty[otSKU] || 0) + otCount;
-          stayQty[potSKU] = (stayQty[potSKU] || 0) + otCount;
-        } else {
-          stayQty[sSKU] = (stayQty[sSKU] || 0) + corners + 2;
-          stayQty[partSKU] = (stayQty[partSKU] || 0) + 2;
-          if (W >= 4) {
-            stayQty[opSKU] = (stayQty[opSKU] || 0) + 1;
-            stayQty[popSKU] = (stayQty[popSKU] || 0) + 1;
-          }
-        }
-      }
-    } else {
-      if (isNarrow) {
-        if (isRoof) {
-          stayQty[sSKU] = (stayQty[sSKU] || 0) + totalMiddles;
-          stayQty[otSKU] = (stayQty[otSKU] || 0) + (H === 2 ? 2 : 3);
-        } else if (isDouble) {
-          stayQty[sSKU] = (stayQty[sSKU] || 0) + (corners * 2) + totalMiddles;
-          stayQty[opSKU] = (stayQty[opSKU] || 0) + 1;
-        } else {
-          stayQty[sSKU] = (stayQty[sSKU] || 0) + corners;
-          stayQty[opSKU] = (stayQty[opSKU] || 0) + 3;
-        }
-      } else {
-        if (isRoof) {
-          stayQty[sSKU] = (stayQty[sSKU] || 0) + corners;
-          stayQty[s2SKU] = (stayQty[s2SKU] || 0) + Math.ceil(totalMiddles / 2);
-          stayQty[otSKU] = (stayQty[otSKU] || 0) + (H === 2 ? 2 : 3);
-        } else if (isTier1) {
-          stayQty[sSKU] = (stayQty[sSKU] || 0) + (corners * 3) + (totalMiddles * 2);
-        } else if (isDouble) {
-          stayQty[s1SKU] = (stayQty[s1SKU] || 0) + (corners * 2);
-          stayQty[s2SKU] = (stayQty[s2SKU] || 0) + totalMiddles;
-        } else {
-          stayQty[s1SKU] = (stayQty[s1SKU] || 0) + corners;
-          stayQty[s2SKU] = (stayQty[s2SKU] || 0) + totalMiddles;
-        }
-      }
-    }
-  }
+  // Double stay threshold: >= 12ft (3 tiers imperial) or >= 4m (4 tiers metric)
+  const doubleStayThreshold = isImperial ? 3 : 4;
+  const needsDoubleStay = heightPanels >= doubleStayThreshold;
 
   const stays = [];
-  Object.entries(stayQty).forEach(([sku, qty]) => {
-    if (qty > 0) {
-      stays.push({ sku, description: `Stay ${sku.replace(/-/g, ' ')} - Type 1`, quantity: qty, unitPrice: 0 });
+  const cleats = [];
+
+  // Partition direction determines which dimension the partition spans
+  const partitionAcrossLength = partitionDirection === 'length';
+  const partitionSpanPanels = partitionAcrossLength ? widthPanels : lengthPanels;
+  const nonPartitionDimPanels = partitionAcrossLength ? lengthPanels : widthPanels;
+
+  if (partitionCount === 0) {
+    // ==========================================
+    // NO PARTITION: Use S-stays for base tie
+    // ==========================================
+
+    // S-stays: Tie wall to base
+    // (lengthPanels - 1) joints on each long side × 2 sides × heightPanels tiers
+    const sStayQtyLength = (lengthPanels - 1) * 2 * heightPanels;
+    // (widthPanels - 1) joints on each short side × 2 sides × heightPanels tiers
+    const sStayQtyWidth = (widthPanels - 1) * 2 * heightPanels;
+    const totalSStays = sStayQtyLength + sStayQtyWidth;
+
+    if (totalSStays > 0) {
+      stays.push({
+        sku: `S${sizeValue}${sizeUnit}-${matCode}`,
+        description: `Standard Stay S${sizeValue}${sizeUnit} - Type 1 (base tie)`,
+        quantity: totalSStays,
+        unitPrice: 0
+      });
     }
+
+    // OP-stays: Only needed for tall tanks (double stay rule)
+    if (needsDoubleStay) {
+      // OP spans the full width, one per wall joint on first tier
+      const opLength = widthPanels * sizeValue;
+      const opStayQty = (lengthPanels - 1) * 2; // Both long sides, first tier only
+
+      stays.push({
+        sku: `OP${opLength}${sizeUnit}-${matCode}`,
+        description: `Opening Stay OP${opLength}${sizeUnit} - Type 1 (opposite tie)`,
+        quantity: opStayQty,
+        unitPrice: 0
+      });
+    }
+
+  } else {
+    // ==========================================
+    // WITH PARTITION: Use OP-stays instead of S-stays
+    // Partition blocks base tie, must tie to opposite wall
+    // ==========================================
+
+    // OP-stays for all wall joints (partition blocks S-stay path)
+    // On long walls: (lengthPanels - 1) joints × 2 sides × heightPanels
+    // On short walls: (widthPanels - 1) joints × 2 sides × heightPanels
+    const opQtyLength = (lengthPanels - 1) * heightPanels * 2;
+    const opQtyWidth = (widthPanels - 1) * heightPanels * 2;
+    const totalOPStays = opQtyLength + opQtyWidth;
+
+    if (totalOPStays > 0) {
+      // OP length depends on partition position
+      const opLength = sizeValue; // Default 1 panel length
+      stays.push({
+        sku: `OP${opLength}${sizeUnit}-${matCode}`,
+        description: `Opening Stay OP${opLength}${sizeUnit} - Type 1 (with partition)`,
+        quantity: totalOPStays,
+        unitPrice: 0
+      });
+    }
+
+    // POP-stays: Partition OP stays
+    // Tie partition wall panels to opposite wall
+    // Each partition has (spanPanels - 1) joints × half the height tiers
+    const popQty = partitionCount * (partitionSpanPanels - 1) * Math.ceil(heightPanels / 2);
+    if (popQty > 0) {
+      stays.push({
+        sku: `POP${sizeValue}${sizeUnit}-${matCode}`,
+        description: `Partition OP Stay POP${sizeValue}${sizeUnit} - Type 1`,
+        quantity: popQty,
+        unitPrice: 0
+      });
+    }
+
+    // Partition cleats
+    cleats.push({
+      sku: `CleatCCP-${matCode}`,
+      description: `Cleat C Partition - Type 1`,
+      quantity: partitionCount * partitionSpanPanels * heightPanels,
+      unitPrice: 0
+    });
+  }
+
+  // ==========================================
+  // CLEATS (always needed)
+  // ==========================================
+
+  // Cleat A (Corner cleats)
+  cleats.push({
+    sku: `CleatA-18-${matCode}`,
+    description: `Cleat A (CA) - Corner`,
+    quantity: 4 * heightPanels,
+    unitPrice: 0
   });
 
-  // Cleats
-  const cleats = [];
-  const cleatALQty = 4;
-  const cleatAQty = (L + W - 4) * 2;
-  const cleatEQty = ((L - 1) * 2 + (W - 1) * 2) * H;
-  const cleatEWQty = hasWelded ? ((L - 1) * 2 + (W - 1) * 2) : 0;
-  const cleatCCQty = 4 * H;
-  const cleatCCPQty = hasPartition ? partitionCount * W * H : 0;
+  // Cleat E (Edge cleats)
+  const cleatEQty = (lengthPanels + widthPanels) * 2 * heightPanels;
+  cleats.push({
+    sku: `CleatE-${matCode}`,
+    description: `Cleat E - Edge`,
+    quantity: cleatEQty,
+    unitPrice: 0
+  });
 
-  if (cleatALQty > 0) cleats.push({ sku: `CleatAL-18-${matCode}`, description: 'Cleat AL - Angle', quantity: cleatALQty, unitPrice: 0 });
-  if (cleatAQty > 0) cleats.push({ sku: `CleatA-18-${matCode}`, description: 'Cleat A (CA)', quantity: cleatAQty, unitPrice: 0 });
-  if (cleatEQty > 0) cleats.push({ sku: `CleatE-${matCode}`, description: 'Cleat E', quantity: cleatEQty, unitPrice: 0 });
-  if (cleatEWQty > 0) cleats.push({ sku: `CleatEW-${matCode}`, description: 'Cleat E Welded', quantity: cleatEWQty, unitPrice: 0 });
-  if (cleatCCQty > 0) cleats.push({ sku: `CleatCC2-${matCode}`, description: 'Cleat CC2', quantity: cleatCCQty, unitPrice: 0 });
-  if (cleatCCPQty > 0) cleats.push({ sku: `CleatCCP-${matCode}`, description: 'Cleat C Partition', quantity: cleatCCPQty, unitPrice: 0 });
+  // Cleat CC2 (Corner connectors)
+  cleats.push({
+    sku: `CleatCC2-${matCode}`,
+    description: `Cleat CC2 - Corner Connector`,
+    quantity: 4 * heightPanels,
+    unitPrice: 0
+  });
 
   console.log(`🔧 Type 1 stays calculated: ${stays.length} stay types, ${cleats.length} cleat types`);
+
   return { stays, cleats };
 }
 
 /**
- * Calculate Type 2 stays (VS, HS, HSP, VSP, HSO, HSOP)
- * Validated: 4 tanks at 100% accuracy
+ * Calculate Type 2 stays (HS, VS, HSO, HSP, VSP, HSOP)
+ * Type 2 uses angle stays with welded bottom tier
+ *
+ * Stay Logic (from engineering drawings):
+ * - HS/HSW: Horizontal Stay (ties wall to base) - W = welded for bottom tier
+ * - VS/VSW: Vertical Stay (ties wall to base, spans tiers)
+ * - HSO: Horizontal OP Stay (ties to opposite wall)
+ * - HSP/HSPW: Partition horizontal stay
+ * - VSP/VSPW: Partition vertical stay (when space >= 2 panels)
+ * - HSOP: Partition to opposite wall (when space < 2 panels)
+ *
+ * @param {Object} inputs - Tank configuration
+ * @returns {Object} { stays: [], cleats: [] }
  */
 function calculateType2Stays(inputs) {
   const {
-    length, width, height, panelType, material,
-    partitionCount = 0, partitionDirection = 'width', partitionPositions = null, internalSupport = false
+    length,
+    width,
+    height,
+    panelType,
+    material,
+    partitionCount = 0,
+    partitionDirection = 'width',
+    partitionPositions = null,
+    internalSupport = false
   } = inputs;
 
-  if (!internalSupport) return { stays: [], cleats: [] };
+  // If internal support not enabled, return empty
+  if (!internalSupport) {
+    return { stays: [], cleats: [] };
+  }
 
-  const panelSize = 1.0;
-  const L = Math.ceil(length / panelSize);
-  const W = Math.ceil(width / panelSize);
-  const H = Math.ceil(height / panelSize);
+  const isImperial = panelType === 'i';
+  const panelSize = isImperial ? 1.22 : 1.0;
+  const sizeUnit = isImperial ? 'ft' : 'm';
+  const sizeValue = isImperial ? 4 : 1;
 
+  const lengthPanels = Math.ceil(length / panelSize);
+  const widthPanels = Math.ceil(width / panelSize);
+  const heightPanels = Math.ceil(height / panelSize);
+
+  // Type 2 only available for HDG and MS
   const matCode = material === 'HDG' ? 'HDG' : 'MS';
-  const { doubleTiers, hasWelded } = getTierDistribution(H);
-  const { corners, longWallMiddles, shortWallMiddles, totalMiddles } = getPositions(L, W);
 
-  const maxLongSpan = Math.ceil((L - 1) / 2);
-  const needsVSatUpperTiers = maxLongSpan > 2;
-  const hasPartition = partitionCount > 0;
-  const sectionWidth = hasPartition ? Math.ceil(L / (partitionCount + 1)) : W;
-  const useVSPinsteadOfOP = hasPartition && L >= 6;
-
-  let stayQty = {};
-
-  const vs1WSKU = `2VS1mW-${matCode}`;
-  const vs1SKU = `2VS1m-${matCode}`;
-  const hs1WSKU = `2HS1mW-${matCode}`;
-  const hs1SKU = `2HS1m-${matCode}`;
-  const hs2SKU = `2HS2m-${matCode}`;
-
-  // Tier 1
-  const vs1Tier1 = hasWelded ? vs1WSKU : vs1SKU;
-  const hs1Tier1 = hasWelded ? hs1WSKU : hs1SKU;
-  stayQty[vs1Tier1] = (stayQty[vs1Tier1] || 0) + (corners * 2) + (totalMiddles * 2);
-  stayQty[hs1Tier1] = (stayQty[hs1Tier1] || 0) + corners;
-
-  if (hasPartition) {
-    const hspSKU = hasWelded ? `2HSP1mW-${matCode}` : `2HSP1m-${matCode}`;
-    stayQty[hspSKU] = (stayQty[hspSKU] || 0) + (2 * partitionCount);
-    if (useVSPinsteadOfOP) {
-      const vspSKU = hasWelded ? `2VSP1mW-${matCode}` : `2VSP1m-${matCode}`;
-      stayQty[vspSKU] = (stayQty[vspSKU] || 0) + partitionCount;
-    } else if (hasWelded) {
-      stayQty[`2HSO${sectionWidth}mW-${matCode}`] = (stayQty[`2HSO${sectionWidth}mW-${matCode}`] || 0) + 1;
-      stayQty[`2HSOP${sectionWidth}mW-${matCode}`] = (stayQty[`2HSOP${sectionWidth}mW-${matCode}`] || 0) + 1;
-    }
-  }
-
-  // Upper tiers
-  for (let tier = 2; tier <= H; tier++) {
-    const isDouble = tier <= doubleTiers;
-    const isRoof = tier === H;
-    stayQty[hs1SKU] = (stayQty[hs1SKU] || 0) + (corners * (isDouble ? 2 : 1));
-
-    if (hasPartition) {
-      const hsoSKU = `2HSO${sectionWidth}m-${matCode}`;
-      const hsopSKU = `2HSOP${sectionWidth}m-${matCode}`;
-      const hspSKU = `2HSP1m-${matCode}`;
-      if (isRoof) {
-        stayQty[hspSKU] = (stayQty[hspSKU] || 0) + (2 * partitionCount);
-        stayQty[`T2-OT-${matCode}`] = (stayQty[`T2-OT-${matCode}`] || 0) + 3;
-        stayQty[`T2-POT-${matCode}`] = (stayQty[`T2-POT-${matCode}`] || 0) + 3;
-      } else {
-        stayQty[hsoSKU] = (stayQty[hsoSKU] || 0) + 1;
-        stayQty[hsopSKU] = (stayQty[hsopSKU] || 0) + partitionCount;
-        stayQty[hspSKU] = (stayQty[hspSKU] || 0) + (2 * partitionCount);
-      }
-    } else if (needsVSatUpperTiers && isDouble) {
-      stayQty[`2VS${tier}m-${matCode}`] = (stayQty[`2VS${tier}m-${matCode}`] || 0) + longWallMiddles;
-      stayQty[hs2SKU] = (stayQty[hs2SKU] || 0) + (shortWallMiddles * 2);
-    } else {
-      if (needsVSatUpperTiers && !isDouble && !isRoof) {
-        stayQty[hs2SKU] = (stayQty[hs2SKU] || 0) + (shortWallMiddles * 2);
-      } else if (isRoof) {
-        stayQty[hs2SKU] = (stayQty[hs2SKU] || 0) + (needsVSatUpperTiers ? shortWallMiddles : Math.ceil(totalMiddles / 2));
-        stayQty[`T2-OT-${matCode}`] = (stayQty[`T2-OT-${matCode}`] || 0) + 3;
-      } else {
-        stayQty[hs2SKU] = (stayQty[hs2SKU] || 0) + totalMiddles;
-      }
-    }
-  }
+  // HSO threshold: Width >= 4 panels (metric) or >= 3 panels (imperial/12ft)
+  const needsHSO = isImperial ? widthPanels >= 3 : widthPanels >= 4;
 
   const stays = [];
-  Object.entries(stayQty).forEach(([sku, qty]) => {
-    if (qty > 0) {
-      stays.push({ sku, description: `Stay ${sku.replace(/-/g, ' ')} - Type 2`, quantity: qty, unitPrice: 0 });
+  const cleats = [];
+
+  // Partition calculations
+  const partitionAcrossLength = partitionDirection === 'length';
+  const partitionSpanPanels = partitionAcrossLength ? widthPanels : lengthPanels;
+  const nonPartitionDimPanels = partitionAcrossLength ? lengthPanels : widthPanels;
+
+  // Calculate space to nearest wall from partition (for VSP vs HSOP decision)
+  const calculateSpaceToNearestWall = () => {
+    if (partitionCount === 0) return nonPartitionDimPanels;
+    if (partitionPositions && partitionPositions.length > 0) {
+      return Math.min(partitionPositions[0], nonPartitionDimPanels - partitionPositions[partitionPositions.length - 1]);
     }
+    return Math.floor(nonPartitionDimPanels / 2);
+  };
+  const spaceToWall = calculateSpaceToNearestWall();
+
+  // ==========================================
+  // HORIZONTAL STAYS (HS)
+  // ==========================================
+
+  // HS per tier = perimeter joints = (length-1)*2 + (width-1)*2
+  const hsPerTier = (lengthPanels - 1) * 2 + (widthPanels - 1) * 2;
+
+  // Bottom tier: Welded (HSW)
+  stays.push({
+    sku: `2HS${sizeValue}${sizeUnit}W-${matCode}`,
+    description: `Horizontal Stay ${sizeValue}${sizeUnit} Welded - Type 2 (bottom tier)`,
+    quantity: hsPerTier,
+    unitPrice: 0
   });
 
-  // Cleats
-  const cleats = [];
-  const cleatALQty = 4;
-  const cleatAQty = (L + W - 4) * 2;
-  const cleatEQty = ((L - 1) * 2 + (W - 1) * 2) * H;
-  const cleatEWQty = hasWelded ? ((L - 1) * 2 + (W - 1) * 2) : 0;
-  const cleatCCQty = 4 * H;
-  const cleatCCPQty = hasPartition ? partitionCount * W * H : 0;
+  // Upper tiers: Bolted (HS)
+  if (heightPanels > 1) {
+    stays.push({
+      sku: `2HS${sizeValue}${sizeUnit}-${matCode}`,
+      description: `Horizontal Stay ${sizeValue}${sizeUnit} - Type 2`,
+      quantity: hsPerTier * (heightPanels - 1),
+      unitPrice: 0
+    });
+  }
 
-  if (cleatALQty > 0) cleats.push({ sku: `CleatAL-18-${matCode}`, description: 'Cleat AL - Angle', quantity: cleatALQty, unitPrice: 0 });
-  if (cleatAQty > 0) cleats.push({ sku: `CleatA-18-${matCode}`, description: 'Cleat A (CA)', quantity: cleatAQty, unitPrice: 0 });
-  if (cleatEQty > 0) cleats.push({ sku: `CleatE-${matCode}`, description: 'Cleat E', quantity: cleatEQty, unitPrice: 0 });
-  if (cleatEWQty > 0) cleats.push({ sku: `CleatEW-${matCode}`, description: 'Cleat E Welded', quantity: cleatEWQty, unitPrice: 0 });
-  if (cleatCCQty > 0) cleats.push({ sku: `CC-18-${matCode}`, description: 'Corner Cleat CC', quantity: cleatCCQty, unitPrice: 0 });
-  if (cleatCCPQty > 0) cleats.push({ sku: `CleatCCP-${matCode}`, description: 'Cleat C Partition', quantity: cleatCCPQty, unitPrice: 0 });
+  // ==========================================
+  // VERTICAL STAYS (VS)
+  // BUG-009 FIX: Narrow tanks (width <= 3 panels) use HSO pattern, NO vertical stays
+  // Wide tanks (width >= 4 panels) use VS pattern
+  // ==========================================
+
+  // Check if tank is narrow (width <= 3 panels for metric, <= 2 for imperial)
+  const isNarrowTank = isImperial ? widthPanels <= 2 : widthPanels <= 3;
+
+  // Only generate VS stays for WIDE tanks
+  if (!isNarrowTank) {
+    // VS at corners: 4 corners, welded at bottom
+    stays.push({
+      sku: `2VS${sizeValue}${sizeUnit}W-${matCode}`,
+      description: `Vertical Stay ${sizeValue}${sizeUnit} Welded - Type 2 (corners)`,
+      quantity: 4,
+      unitPrice: 0
+    });
+
+    // VS along walls: spans 2 tiers
+    if (heightPanels >= 2) {
+      const vsLength = sizeValue * 2; // 2-tier span
+      const vsQty = (lengthPanels + widthPanels) * 2; // All wall joints
+      stays.push({
+        sku: `2VS${vsLength}${sizeUnit}-${matCode}`,
+        description: `Vertical Stay ${vsLength}${sizeUnit} - Type 2 (2-tier span)`,
+        quantity: vsQty,
+        unitPrice: 0
+      });
+    }
+  }
+  // For narrow tanks, HSO stays handle the bracing (generated below)
+
+  // ==========================================
+  // HSO STAYS (Opposite wall tie)
+  // BUG-009: Narrow tanks ALWAYS use HSO (replaces VS pattern)
+  // Wide tanks may also use HSO for additional bracing
+  // ==========================================
+
+  // For narrow tanks, HSO is the primary bracing mechanism
+  // For wide tanks, HSO is additional support (original needsHSO logic)
+  if (isNarrowTank || needsHSO) {
+    // HSO length = full width span
+    const hsoLength = widthPanels * sizeValue;
+    // Quantity: (lengthPanels - 1) joints on both long sides × heightPanels tiers
+    // For narrow tanks, we need HSO on every tier
+    const hsoQtyPerTier = (lengthPanels - 1) * 2;
+    const hsoQty = isNarrowTank ? hsoQtyPerTier * heightPanels : hsoQtyPerTier;
+
+    stays.push({
+      sku: `2HSO${hsoLength}${sizeUnit}-${matCode}`,
+      description: `Horizontal OP Stay ${hsoLength}${sizeUnit} - Type 2 (opposite tie)`,
+      quantity: hsoQty,
+      unitPrice: 0
+    });
+  }
+
+  // ==========================================
+  // PARTITION STAYS
+  // ==========================================
+
+  if (partitionCount > 0) {
+    // HSP: Partition horizontal stays (always used)
+    const hspQty = partitionCount * partitionSpanPanels * heightPanels;
+    stays.push({
+      sku: `2HSP${sizeValue}${sizeUnit}-${matCode}`,
+      description: `Horizontal Stay Partition ${sizeValue}${sizeUnit} - Type 2`,
+      quantity: hspQty,
+      unitPrice: 0
+    });
+
+    // Welded partition stays for bottom tier
+    stays.push({
+      sku: `2HSP${sizeValue}${sizeUnit}W-${matCode}`,
+      description: `Horizontal Stay Partition ${sizeValue}${sizeUnit} Welded - Type 2 (bottom tier)`,
+      quantity: partitionCount * partitionSpanPanels,
+      unitPrice: 0
+    });
+
+    // BUG-009 FIX: For narrow tanks, use HSOP pattern (no VSP)
+    // For wide tanks with sufficient space, use VSP
+    // Decision: VSP (space >= 2 AND wide tank) vs HSOP (narrow or space < 2)
+    if (!isNarrowTank && spaceToWall >= 2) {
+      // VSP: Vertical partition stay (tie to base) - only for wide tanks
+      const vspQty = partitionCount * Math.ceil(partitionSpanPanels / 2) * heightPanels;
+      stays.push({
+        sku: `2VSP${sizeValue}${sizeUnit}-${matCode}`,
+        description: `Vertical Stay Partition ${sizeValue}${sizeUnit} - Type 2 (base tie)`,
+        quantity: vspQty,
+        unitPrice: 0
+      });
+    } else {
+      // HSOP: Horizontal OP partition (tie to opposite wall/partition)
+      // Used for narrow tanks or when space to wall < 2 panels
+      const hsopLength = Math.max(1, spaceToWall) * sizeValue;
+      const hsopQty = partitionCount * partitionSpanPanels * heightPanels;
+      stays.push({
+        sku: `2HSOP${hsopLength}${sizeUnit}-${matCode}`,
+        description: `Horizontal OP Partition ${hsopLength}${sizeUnit} - Type 2 (narrow)`,
+        quantity: hsopQty,
+        unitPrice: 0
+      });
+    }
+  }
+
+  // ==========================================
+  // CLEATS (Type 2 specific)
+  // ==========================================
+
+  // CleatAL: Angle cleats at corners
+  cleats.push({
+    sku: `CleatAL-18-${matCode}`,
+    description: `Cleat AL - Angle (corners)`,
+    quantity: 4,
+    unitPrice: 0
+  });
+
+  // CleatA: Standard cleats along walls
+  const cleatAQty = (lengthPanels + widthPanels) * 2;
+  cleats.push({
+    sku: `CleatA-18-${matCode}`,
+    description: `Cleat A - Standard`,
+    quantity: cleatAQty,
+    unitPrice: 0
+  });
+
+  // CleatE: Edge cleats
+  const cleatEQty = (lengthPanels + widthPanels) * 2 * heightPanels;
+  cleats.push({
+    sku: `CleatE-${matCode}`,
+    description: `Cleat E - Edge`,
+    quantity: cleatEQty,
+    unitPrice: 0
+  });
+
+  // CleatEW: Welded edge cleats (bottom tier)
+  cleats.push({
+    sku: `CleatEW-${matCode}`,
+    description: `Cleat E Welded - Bottom tier`,
+    quantity: (lengthPanels + widthPanels) * 2,
+    unitPrice: 0
+  });
+
+  // CC: Corner connectors
+  cleats.push({
+    sku: `CC-18-${matCode}`,
+    description: `Corner Cleat CC`,
+    quantity: 4 * heightPanels,
+    unitPrice: 0
+  });
 
   console.log(`🔧 Type 2 stays calculated: ${stays.length} stay types, ${cleats.length} cleat types`);
+
   return { stays, cleats };
 }
 
 /**
- * Calculate stays based on steel type - routes to Type 1 or Type 2
+ * Calculate stays based on steel type
+ * Routes to Type 1 or Type 2 calculation
+ * Forces Type 1 for SS316/SS304
+ *
+ * @param {Object} inputs - Tank configuration
+ * @returns {Object} { stays: [], cleats: [] }
  */
 function calculateStays(inputs) {
   const { material, panelTypeDetail } = inputs;
+
+  // SS316/SS304 MUST use Type 1 (no Type 2 available)
   if (material === 'SS316' || material === 'SS304') {
     console.log(`🔧 ${material} forced to Type 1 stays`);
     return calculateType1Stays(inputs);
   }
+
+  // Check for Type 2 selection
   const isType2 = panelTypeDetail === 2 || panelTypeDetail === '2';
+
   if (isType2) {
     console.log(`🔧 Using Type 2 stays for ${material}`);
     return calculateType2Stays(inputs);
   }
+
+  // Default to Type 1
   console.log(`🔧 Using Type 1 stays for ${material}`);
   return calculateType1Stays(inputs);
 }
@@ -560,7 +691,7 @@ function calculateFRPTieRods(inputs) {
   const partitionComponents = [];
 
   // ===========================
-  // END STUDS (using getFRPEndStudConfig for proper lengths)
+  // END STUDS
   // Formula: (joints × height × 4) with scaling for larger tanks
   // Each panel joint has 4 stud positions (2 per side × 2 walls)
   // ===========================
@@ -569,13 +700,11 @@ function calculateFRPTieRods(inputs) {
   // These studs span the LENGTH of the tank
   const lengthJoints = widthPanels - 1;
   let lengthStudQty = lengthJoints * heightPanels * 4;
-  const lengthStudConfig = getFRPEndStudConfig(length);
 
   // Width direction studs (go through length walls)
   // These studs span the WIDTH of the tank
   const widthJoints = lengthPanels - 1;
   let widthStudQty = widthJoints * heightPanels * 4;
-  const widthStudConfig = getFRPEndStudConfig(width);
 
   // Scale up for larger tanks (>5m in any dimension)
   if (length > 5 || width > 5 || height > 4) {
@@ -586,75 +715,43 @@ function calculateFRPTieRods(inputs) {
   // Add length direction studs
   if (lengthStudQty > 0) {
     tieRods.push({
-      sku: lengthStudConfig.studSKU,
-      description: `End Stud M10 × ${lengthStudConfig.studLengthMM}mm - SS304 (length direction)${lengthStudConfig.needsJoint ? ' [JOINTED]' : ''}`,
+      sku: `TR-FRP-${Math.round(length)}M-SS304`,
+      description: `End Stud M10 × ${Math.round(length)}M - SS304 (length direction)`,
       quantity: lengthStudQty,
       unitPrice: 0
     });
-
-    // Add stud joints if needed for long spans
-    if (lengthStudConfig.needsJoint) {
-      tieRods.push({
-        sku: lengthStudConfig.jointSKU,
-        description: 'FRP Tie Rod Joint Coupler - SS304',
-        quantity: lengthStudQty * lengthStudConfig.jointQty,
-        unitPrice: 0
-      });
-    }
   }
 
   // Add width direction studs
   if (widthStudQty > 0) {
     tieRods.push({
-      sku: widthStudConfig.studSKU,
-      description: `End Stud M10 × ${widthStudConfig.studLengthMM}mm - SS304 (width direction)${widthStudConfig.needsJoint ? ' [JOINTED]' : ''}`,
+      sku: `TR-FRP-${Math.round(width)}M-SS304`,
+      description: `End Stud M10 × ${Math.round(width)}M - SS304 (width direction)`,
       quantity: widthStudQty,
       unitPrice: 0
     });
-
-    // Add stud joints if needed for long spans
-    if (widthStudConfig.needsJoint) {
-      tieRods.push({
-        sku: widthStudConfig.jointSKU,
-        description: 'FRP Tie Rod Joint Coupler - SS304',
-        quantity: widthStudQty * widthStudConfig.jointQty,
-        unitPrice: 0
-      });
-    }
   }
 
   // ===========================
-  // STAY PLATES (using getFRPStayPlateConfig for height-based selection)
+  // STAY PLATES (Internal support connections)
   // ===========================
 
-  const stayPlateConfig = getFRPStayPlateConfig(height, perimeter);
+  // 2H Stay Plates: perimeter × 1.5 (refined formula)
+  const stayPlate2HQty = Math.ceil(perimeter * 1.5);
+  stayPlates.push({
+    sku: 'StayPlate2H-HDG',
+    description: 'HDG Stay Plate 2H',
+    quantity: stayPlate2HQty,
+    unitPrice: 0
+  });
 
-  // 2H Stay Plates (if needed for this height)
-  if (stayPlateConfig.use2H && stayPlateConfig.qty2H > 0) {
-    stayPlates.push({
-      sku: 'StayPlate2H-HDG',
-      description: 'HDG Stay Plate 2H',
-      quantity: stayPlateConfig.qty2H,
-      unitPrice: 0
-    });
-  }
-
-  // 4H Stay Plates (only for 4m+ tanks)
-  if (stayPlateConfig.use4H && stayPlateConfig.qty4H > 0) {
+  // 4H Stay Plates: only for tanks 4m+ height
+  if (heightPanels >= 4) {
+    const stayPlate4HQty = Math.ceil(perimeter * (heightPanels / 4) * 1.7);
     stayPlates.push({
       sku: 'StayPlate4H-HDG',
       description: 'HDG Stay Plate 4H',
-      quantity: stayPlateConfig.qty4H,
-      unitPrice: 0
-    });
-  }
-
-  // Corner Cleats (for 1.5m+ tanks)
-  if (stayPlateConfig.useCornerCleat && stayPlateConfig.qtyCornerCleat > 0) {
-    stayPlates.push({
-      sku: 'CC-FRP-HDG',
-      description: 'FRP Corner Cleat C - HDG',
-      quantity: stayPlateConfig.qtyCornerCleat,
+      quantity: stayPlate4HQty,
       unitPrice: 0
     });
   }
@@ -1109,152 +1206,6 @@ function getFRPTiers(heightMeters) {
 }
 
 /**
- * Get FRP sidewall depth code for specific tier position
- * Based on engineering drawing: Sidewall Arrangement (Dec 2024)
- *
- * Key principle: Bottom tiers handle more water pressure = higher code number
- * Code number represents water depth at that panel level
- *
- * @param {number} tankHeight - Total tank height in meters
- * @param {number} tierIndex - 0-based tier index (0 = bottom tier)
- * @returns {string} Depth code (e.g., "40", "30", "20", "10")
- */
-function getFRPTierDepthCode(tankHeight, tierIndex) {
-  // Tier stacking patterns from engineering drawing (Image 2)
-  // Format: [bottom tier, ..., top tier]
-  const tierPatterns = {
-    1.0: ['10'],
-    1.5: ['15'],  // D15 special half-height panel
-    2.0: ['20', '10'],
-    2.5: ['25', '20'],
-    3.0: ['30', '20', '10'],
-    3.5: ['35', '25', '15', '10'],  // H10 at top for 3.5m
-    4.0: ['40', '30', '20', '10']
-  };
-
-  // Round height to nearest 0.5m for lookup
-  const roundedHeight = Math.round(tankHeight * 2) / 2;
-
-  // Get pattern for this height, default to 4.0m pattern for larger tanks
-  let pattern;
-  if (roundedHeight <= 4.0) {
-    pattern = tierPatterns[roundedHeight] || tierPatterns[4.0];
-  } else {
-    // For tanks > 4m (special request), extrapolate pattern
-    // Start at 40 for bottom, decrease by 10 per tier, minimum 10
-    const numTiers = Math.ceil(tankHeight);
-    pattern = [];
-    for (let i = 0; i < numTiers; i++) {
-      const code = Math.max(10, 40 - (i * 10));
-      pattern.push(String(code).padStart(2, '0'));
-    }
-  }
-
-  // Return code for requested tier (0-indexed)
-  // If tierIndex exceeds pattern length, use top tier code
-  if (tierIndex >= pattern.length) {
-    return pattern[pattern.length - 1];
-  }
-
-  return pattern[tierIndex];
-}
-
-/**
- * Get FRP Stay Plate configuration based on tank height
- * Different heights require different plate combinations
- *
- * @param {number} heightMeters - Tank height in meters
- * @param {number} perimeter - Tank perimeter in panels
- * @returns {Object} Configuration with plate types and quantities
- */
-function getFRPStayPlateConfig(heightMeters, perimeter) {
-  const config = {
-    use2H: false,
-    use4H: false,
-    useCornerCleat: false,
-    qty2H: 0,
-    qty4H: 0,
-    qtyCornerCleat: 0
-  };
-
-  if (heightMeters <= 1.0) {
-    // No plates needed for 1m tanks
-    return config;
-  }
-
-  if (heightMeters <= 1.5) {
-    // 1.5m: Corner Cleat only
-    config.useCornerCleat = true;
-    config.qtyCornerCleat = 4;
-    return config;
-  }
-
-  if (heightMeters <= 2.5) {
-    // 2.0-2.5m: 2H only
-    config.use2H = true;
-    config.qty2H = Math.ceil(perimeter * 0.75);
-    return config;
-  }
-
-  if (heightMeters <= 3.5) {
-    // 3.0-3.5m: 2H + Corner Cleat
-    config.use2H = true;
-    config.useCornerCleat = true;
-    config.qty2H = Math.ceil(perimeter * 1.2);
-    config.qtyCornerCleat = 4;
-    return config;
-  }
-
-  // 4.0m+: 2H + 4H + Corner Cleat (full formulas)
-  config.use2H = true;
-  config.use4H = true;
-  config.useCornerCleat = true;
-  config.qty2H = Math.ceil(perimeter * 1.5);
-  config.qty4H = Math.ceil(perimeter * (Math.ceil(heightMeters) / 4) * 1.7);
-  config.qtyCornerCleat = 4;
-
-  return config;
-}
-
-/**
- * Get FRP End Stud configuration for a given span
- * Calculates proper stud length and determines if joints are needed
- *
- * @param {number} spanMeters - Span length in meters
- * @returns {Object} Configuration with studLength, SKU, needsJoint, jointQty
- */
-function getFRPEndStudConfig(spanMeters) {
-  // Stud length formula: (span in mm) - 420mm for end fittings
-  const studLengthMM = Math.round(spanMeters * 1000) - 420;
-  const maxLengthMM = 5800; // Maximum single stud length
-
-  const config = {
-    studLengthMM: studLengthMM,
-    studLengthM: studLengthMM / 1000,
-    needsJoint: false,
-    jointQty: 0,
-    studSKU: '',
-    jointSKU: 'TRJ-FRP-SS304'
-  };
-
-  if (studLengthMM <= maxLengthMM) {
-    // Single stud, no joint needed
-    config.studSKU = `TR-FRP-${Math.round(spanMeters)}M-SS304`;
-  } else {
-    // Need jointed studs for spans > ~6.2m (stud length > 5800mm)
-    config.needsJoint = true;
-    config.studLengthMM = maxLengthMM;  // Cap at max stud length (5800mm)
-    config.studLengthM = maxLengthMM / 1000;  // Update meters too
-    // Use 11M max length studs with joints for longer spans
-    config.studSKU = 'TR-FRP-11M-SS304';
-    // Calculate number of joints: ceil((span - 11) / 6)
-    config.jointQty = Math.max(1, Math.ceil((spanMeters - 11) / 6));
-  }
-
-  return config;
-}
-
-/**
  * Calculate FRP tank BOM
  * FRP uses completely different panel system than steel
  *
@@ -1406,7 +1357,7 @@ export function calculateFRPBOM(inputs) {
 
   // For each full 1m tier
   for (let tier = 1; tier <= fullTiers; tier++) {
-    const tierDepthCode = getFRPTierDepthCode(height, tier - 1); // Tier-specific depth code (0-indexed)
+    const tierDepthCode = getFRPDepthCode(height); // Use tank depth for all tiers
     const isBottomTier = (tier === 1);
 
     // Small tank wall handling for FRP
@@ -1509,20 +1460,19 @@ export function calculateFRPBOM(inputs) {
 
   if (partitionCount > 0) {
     for (let tier = 1; tier <= fullTiers; tier++) {
-      // Partition panels use tier-specific depth code (same as sidewalls)
-      const partitionDepthCode = getFRPTierDepthCode(height, tier - 1);
+      const tierDepthCode = getFRPDepthCode(height);
 
       // Partition corner panels (P-BCL, P-BCR)
       bom.partition.push({
-        sku: `3P${partitionDepthCode}-FRP-BCL`,
-        description: `FRP Partition P${partitionDepthCode}-BCL - Tier ${tier} Corner Left`,
+        sku: `3P${tierDepthCode}-FRP-BCL`,
+        description: `FRP Partition P${tierDepthCode}-BCL - Tier ${tier} Corner Left`,
         quantity: partitionCount,
         unitPrice: 0
       });
 
       bom.partition.push({
-        sku: `3P${partitionDepthCode}-FRP-BCR`,
-        description: `FRP Partition P${partitionDepthCode}-BCR - Tier ${tier} Corner Right`,
+        sku: `3P${tierDepthCode}-FRP-BCR`,
+        description: `FRP Partition P${tierDepthCode}-BCR - Tier ${tier} Corner Right`,
         quantity: partitionCount,
         unitPrice: 0
       });
@@ -1531,8 +1481,8 @@ export function calculateFRPBOM(inputs) {
       const mainPartitionCount = Math.max(0, partitionSpan - 2) * partitionCount;
       if (mainPartitionCount > 0) {
         bom.partition.push({
-          sku: `3P${partitionDepthCode}-FRP`,
-          description: `FRP Partition P${partitionDepthCode} - Tier ${tier}`,
+          sku: `3P${tierDepthCode}-FRP`,
+          description: `FRP Partition P${tierDepthCode} - Tier ${tier}`,
           quantity: mainPartitionCount,
           unitPrice: 0
         });

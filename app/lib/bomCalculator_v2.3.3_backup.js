@@ -1243,8 +1243,6 @@ function getFRPEndStudConfig(spanMeters) {
   } else {
     // Need jointed studs for spans > ~6.2m (stud length > 5800mm)
     config.needsJoint = true;
-    config.studLengthMM = maxLengthMM;  // Cap at max stud length (5800mm)
-    config.studLengthM = maxLengthMM / 1000;  // Update meters too
     // Use 11M max length studs with joints for longer spans
     config.studSKU = 'TR-FRP-11M-SS304';
     // Calculate number of joints: ceil((span - 11) / 6)
