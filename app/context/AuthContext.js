@@ -44,8 +44,8 @@ export function AuthProvider({ children }) {
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
 
-    // Redirect to sunnik.net after sign out
-    window.location.href = 'https://sunnik.net';
+    // Redirect to login after sign out
+    window.location.href = '/login';
   };
 
   return (
