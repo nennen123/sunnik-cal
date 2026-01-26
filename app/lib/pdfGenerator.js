@@ -434,9 +434,9 @@ function getBuildStandardName(code) {
 /**
  * Generate customer-friendly PDF for sales users
  * Includes panel summary, accessories, pipe fittings - NO SKU codes or itemized prices
- * Version: 2.0.0
+ * Version: 3.0.0 - Added serial number, customer info
  */
-export async function generateSalesPDF(bom, inputs, markupPercentage, finalPrice) {
+export async function generateSalesPDF(bom, inputs, markupPercentage, finalPrice, serialNumber, customerCompany, tankLocation) {
   const { jsPDF } = await import('jspdf');
   const autoTable = (await import('jspdf-autotable')).default;
 
@@ -453,6 +453,9 @@ export async function generateSalesPDF(bom, inputs, markupPercentage, finalPrice
   const darkGray = [51, 51, 51];
   const lightGray = [242, 242, 242];
   const greenColor = [34, 197, 94];
+
+  // Use provided serial number or generate fallback
+  const quoteNumber = serialNumber || `SQ-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
 
   // === HELPER FUNCTIONS ===
 
@@ -493,7 +496,6 @@ export async function generateSalesPDF(bom, inputs, markupPercentage, finalPrice
   doc.setFont('helvetica', 'bold');
   doc.text('QUOTATION', pageWidth - margin, yPosition + 2, { align: 'right' });
 
-  const quoteNumber = `SQ-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
   doc.setFontSize(9);
   doc.setTextColor(100, 100, 100);
   doc.setFont('helvetica', 'normal');
@@ -508,6 +510,37 @@ export async function generateSalesPDF(bom, inputs, markupPercentage, finalPrice
   doc.line(margin, yPosition, pageWidth - margin, yPosition);
 
   yPosition += 10;
+
+  // === CUSTOMER INFORMATION SECTION ===
+
+  if (customerCompany || tankLocation) {
+    doc.setFontSize(11);
+    doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
+    doc.setFont('helvetica', 'bold');
+    doc.text('CUSTOMER INFORMATION', margin, yPosition);
+
+    yPosition += 6;
+
+    doc.setFillColor(lightGray[0], lightGray[1], lightGray[2]);
+    doc.roundedRect(margin, yPosition, pageWidth - 2 * margin, 20, 2, 2, 'F');
+
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(80, 80, 80);
+    doc.text('Customer:', margin + 6, yPosition + 8);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
+    doc.text(customerCompany || 'N/A', margin + 30, yPosition + 8);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(80, 80, 80);
+    doc.text('Location:', margin + 6, yPosition + 15);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
+    doc.text(tankLocation || 'N/A', margin + 30, yPosition + 15);
+
+    yPosition += 28;
+  }
 
   // === TANK SPECIFICATION SECTION ===
 

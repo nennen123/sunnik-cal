@@ -1,15 +1,23 @@
 // app/calculator/components/SalesQuoteSummary.js
 // Customer-friendly quotation view for sales users
 // Shows grouped panel counts, accessories descriptions, NO SKU codes
-// Version: 1.0.0
+// Version: 2.0.0 - Added auto-save with serial number
 
 'use client';
 
 import { useState } from 'react';
+import { useAuth } from '../../context/AuthContext';
+import { saveQuote } from '../../lib/quoteService';
 
 export default function SalesQuoteSummary({ bom, inputs, markupPercentage, setMarkupPercentage, finalPrice }) {
+  const { user } = useAuth();
   const [isExporting, setIsExporting] = useState(false);
   const [exportError, setExportError] = useState(null);
+  const [successMessage, setSuccessMessage] = useState(null);
+
+  // Customer information fields
+  const [customerCompany, setCustomerCompany] = useState('');
+  const [tankLocation, setTankLocation] = useState('');
 
   // Calculate actual dimensions based on dimension mode and panel type
   const panelSize = inputs.panelType === 'i' ? 1.22 : 1.0;
@@ -23,6 +31,9 @@ export default function SalesQuoteSummary({ bom, inputs, markupPercentage, setMa
   const volumeLiters = volume * 1000;
   const effectiveVolume = actualLength * actualWidth * (actualHeight - (inputs.freeboard || 0.2));
   const effectiveVolumeLiters = effectiveVolume * 1000;
+
+  // Base price (before markup)
+  const basePrice = bom.summary?.totalCost || 0;
 
   // Material names (customer-friendly)
   const materialNames = {
@@ -132,21 +143,60 @@ export default function SalesQuoteSummary({ bom, inputs, markupPercentage, setMa
   const accessories = getAccessoriesList();
   const pipeFittings = getPipeFittingsList();
 
-  // Generate quote number
-  const quoteNumber = `SQ-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
-
-  // Handle PDF Export
+  // Handle PDF Export with auto-save
   const handleExportPDF = async () => {
-    setIsExporting(true);
     setExportError(null);
+    setSuccessMessage(null);
+
+    // Validate required fields
+    if (!customerCompany.trim()) {
+      setExportError('Please enter customer company name');
+      return;
+    }
+    if (!tankLocation.trim()) {
+      setExportError('Please enter tank location');
+      return;
+    }
+
+    setIsExporting(true);
 
     try {
+      // 1. Save quote to database and get serial number
+      const { serialNumber, error: saveError } = await saveQuote({
+        userId: user?.id,
+        customerCompany: customerCompany.trim(),
+        tankLocation: tankLocation.trim(),
+        tankConfig: inputs,
+        basePrice: basePrice,
+        markupPercentage: markupPercentage,
+        finalPrice: finalPrice
+      });
+
+      if (saveError) {
+        console.error('Error saving quote:', saveError);
+        setExportError(`Failed to save quote: ${saveError.message || 'Unknown error'}`);
+        setIsExporting(false);
+        return;
+      }
+
+      // 2. Generate PDF with serial number
       const { generateSalesPDF } = await import('../../lib/pdfGenerator');
-      const fileName = await generateSalesPDF(bom, inputs, markupPercentage, finalPrice);
-      console.log(`PDF exported: ${fileName}`);
+      const fileName = await generateSalesPDF(
+        bom,
+        inputs,
+        markupPercentage,
+        finalPrice,
+        serialNumber,
+        customerCompany.trim(),
+        tankLocation.trim()
+      );
+
+      console.log(`Quote saved and PDF exported: ${serialNumber} -> ${fileName}`);
+      setSuccessMessage(`Quote ${serialNumber} saved successfully!`);
+
     } catch (error) {
       console.error('PDF export error:', error);
-      setExportError('Failed to export PDF. Please try again.');
+      setExportError('Failed to generate PDF. Please try again.');
     } finally {
       setIsExporting(false);
     }
@@ -160,7 +210,7 @@ export default function SalesQuoteSummary({ bom, inputs, markupPercentage, setMa
           <div>
             <h2 className="text-2xl font-bold mb-1">Customer Quotation</h2>
             <p className="text-blue-100 text-sm">
-              Quote #: {quoteNumber}
+              Complete the form below to generate quote
             </p>
           </div>
           <div className="text-right">
@@ -168,6 +218,44 @@ export default function SalesQuoteSummary({ bom, inputs, markupPercentage, setMa
             <div className="font-semibold">
               {new Date().toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric' })}
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Customer Information - NEW */}
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+          <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+          </svg>
+          Customer Information
+          <span className="text-red-500 text-sm font-normal ml-2">* Required</span>
+        </h3>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Customer Company Name <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={customerCompany}
+              onChange={(e) => setCustomerCompany(e.target.value)}
+              placeholder="e.g., ABC Construction Sdn Bhd"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Tank Location <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={tankLocation}
+              onChange={(e) => setTankLocation(e.target.value)}
+              placeholder="e.g., Kuala Lumpur, Malaysia"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
           </div>
         </div>
       </div>
@@ -374,22 +462,40 @@ export default function SalesQuoteSummary({ bom, inputs, markupPercentage, setMa
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                 </svg>
-                <span>Generating PDF...</span>
+                <span>Saving & Generating PDF...</span>
               </>
             ) : (
               <>
                 <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
-                <span>Generate Customer Quote PDF</span>
+                <span>Save & Generate Quote PDF</span>
               </>
             )}
           </button>
         </div>
 
+        {/* Success Message */}
+        {successMessage && (
+          <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+            <div className="flex items-center gap-3">
+              <svg className="w-5 h-5 text-green-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+              <p className="text-green-800 font-medium">{successMessage}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Error Message */}
         {exportError && (
-          <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-center">
-            <p className="text-red-600 text-sm">{exportError}</p>
+          <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <div className="flex items-center gap-3">
+              <svg className="w-5 h-5 text-red-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+              <p className="text-red-600">{exportError}</p>
+            </div>
           </div>
         )}
       </div>
@@ -401,8 +507,8 @@ export default function SalesQuoteSummary({ bom, inputs, markupPercentage, setMa
             <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
           </svg>
           <p className="text-sm text-blue-800">
-            <strong>Note:</strong> The PDF quote shows only the final price to customers.
-            Individual item costs and markup percentages are not disclosed.
+            <strong>Note:</strong> Quotes are automatically saved with a unique serial number.
+            The PDF shows only the final price to customers - individual costs and markup are not disclosed.
           </p>
         </div>
       </div>
