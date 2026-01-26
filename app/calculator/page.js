@@ -11,12 +11,14 @@ import { loadPrices, getPrice, getCacheStatus } from '../lib/supabasePriceLoader
 import TankInputs from './components/TankInputs';
 import BOMResults from './components/BOMResults';
 import QuoteSummary from './components/QuoteSummary';
+import SalesQuoteSummary from './components/SalesQuoteSummary';
 import { calculateCleats } from '../lib/cleatCalculator';
 import ProtectedRoute from '../components/ProtectedRoute';
 import { useAuth } from '../context/AuthContext';
 
 export default function CalculatorPage() {
-  const { user, signOut } = useAuth();
+  const { user, signOut, role } = useAuth();
+  const [markupPercentage, setMarkupPercentage] = useState(20);
   const [inputs, setInputs] = useState({
     length: 5,
     width: 4,
@@ -362,11 +364,22 @@ export default function CalculatorPage() {
           <div className="lg:col-span-2">
             {showResults && bom ? (
               <div className="space-y-6">
-                {/* Summary */}
-                <QuoteSummary bom={bom} inputs={inputs} />
-
-                {/* BOM Table */}
-                <BOMResults bom={bom} inputs={inputs} />
+                {role === 'sales' ? (
+                  /* Sales View - Customer-friendly quote with markup */
+                  <SalesQuoteSummary
+                    bom={bom}
+                    inputs={inputs}
+                    markupPercentage={markupPercentage}
+                    setMarkupPercentage={setMarkupPercentage}
+                    finalPrice={bom.summary.totalCost * (1 + markupPercentage / 100)}
+                  />
+                ) : (
+                  /* Admin View - Full BOM details */
+                  <>
+                    <QuoteSummary bom={bom} inputs={inputs} />
+                    <BOMResults bom={bom} inputs={inputs} />
+                  </>
+                )}
               </div>
             ) : (
               <div className="bg-white rounded-lg shadow-md p-12 text-center">

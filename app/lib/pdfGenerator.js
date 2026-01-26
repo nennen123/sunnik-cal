@@ -430,3 +430,367 @@ function getBuildStandardName(code) {
   };
   return names[code] || code || 'BSI';
 }
+
+/**
+ * Generate customer-friendly PDF for sales users
+ * Includes panel summary, accessories, pipe fittings - NO SKU codes or itemized prices
+ * Version: 2.0.0
+ */
+export async function generateSalesPDF(bom, inputs, markupPercentage, finalPrice) {
+  const { jsPDF } = await import('jspdf');
+  const autoTable = (await import('jspdf-autotable')).default;
+
+  const doc = new jsPDF();
+
+  // Page dimensions
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const margin = 15;
+  let yPosition = margin;
+
+  // Colors
+  const sunnikBlue = [41, 98, 255];
+  const darkGray = [51, 51, 51];
+  const lightGray = [242, 242, 242];
+  const greenColor = [34, 197, 94];
+
+  // === HELPER FUNCTIONS ===
+
+  // Get support type description
+  const getSupportDescription = () => {
+    if (inputs.material === 'FRP') {
+      return 'Internal Tie Rod System (SS304)';
+    }
+    const hasInternal = inputs.internalSupport === true;
+    const hasExternal = inputs.externalSupport === true;
+    if (hasInternal && hasExternal) return 'Internal Stay + External Bracing';
+    if (hasInternal) return 'Internal Stay System';
+    if (hasExternal) return 'External I-Beam Bracing';
+    return 'Standard Assembly';
+  };
+
+  // Ladder material names
+  const getLadderMaterialName = (code) => {
+    const names = { 'HDG': 'Hot Dip Galvanized', 'SS304': 'Stainless Steel 304', 'SS316': 'Stainless Steel 316' };
+    return names[code] || code;
+  };
+
+  // === HEADER SECTION ===
+
+  doc.setFontSize(22);
+  doc.setTextColor(sunnikBlue[0], sunnikBlue[1], sunnikBlue[2]);
+  doc.setFont('helvetica', 'bold');
+  doc.text('SUNNIK', margin, yPosition + 5);
+
+  doc.setFontSize(9);
+  doc.setTextColor(100, 100, 100);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Water Tank Solutions', margin, yPosition + 11);
+
+  // Quote title on right
+  doc.setFontSize(14);
+  doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
+  doc.setFont('helvetica', 'bold');
+  doc.text('QUOTATION', pageWidth - margin, yPosition + 2, { align: 'right' });
+
+  const quoteNumber = `SQ-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
+  doc.setFontSize(9);
+  doc.setTextColor(100, 100, 100);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Quote #: ${quoteNumber}`, pageWidth - margin, yPosition + 8, { align: 'right' });
+  doc.text(`Date: ${new Date().toLocaleDateString('en-MY', { day: '2-digit', month: '2-digit', year: 'numeric' })}`, pageWidth - margin, yPosition + 13, { align: 'right' });
+
+  yPosition += 20;
+
+  // Divider line
+  doc.setDrawColor(sunnikBlue[0], sunnikBlue[1], sunnikBlue[2]);
+  doc.setLineWidth(0.5);
+  doc.line(margin, yPosition, pageWidth - margin, yPosition);
+
+  yPosition += 10;
+
+  // === TANK SPECIFICATION SECTION ===
+
+  doc.setFontSize(11);
+  doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
+  doc.setFont('helvetica', 'bold');
+  doc.text('TANK SPECIFICATION', margin, yPosition);
+
+  yPosition += 6;
+
+  // Calculate actual dimensions
+  const panelSize = inputs.panelType === 'm' ? 1.0 : 1.22;
+  const dimensionMode = inputs.dimensionMode || 'panel';
+
+  const actualLength = dimensionMode === 'panel' ? inputs.length * panelSize : inputs.length;
+  const actualWidth = dimensionMode === 'panel' ? inputs.width * panelSize : inputs.width;
+  const actualHeight = dimensionMode === 'panel' ? inputs.height * panelSize : inputs.height;
+
+  const volume = actualLength * actualWidth * actualHeight;
+  const volumeLiters = volume * 1000;
+  const effectiveVolume = actualLength * actualWidth * (actualHeight - (inputs.freeboard || 0.2));
+  const effectiveVolumeLiters = effectiveVolume * 1000;
+
+  // Specification box
+  doc.setFillColor(lightGray[0], lightGray[1], lightGray[2]);
+  doc.roundedRect(margin, yPosition, pageWidth - 2 * margin, 48, 2, 2, 'F');
+
+  const specs = [
+    { label: 'Dimensions:', value: `${actualLength.toFixed(2)}m × ${actualWidth.toFixed(2)}m × ${actualHeight.toFixed(2)}m` },
+    { label: 'Nominal Volume:', value: `${volumeLiters.toLocaleString()} Liters` },
+    { label: 'Effective Capacity:', value: `${effectiveVolumeLiters.toLocaleString()} Liters` },
+    { label: 'Material:', value: getMaterialName(inputs.material) },
+    { label: 'Build Standard:', value: getBuildStandardName(inputs.buildStandard) },
+    { label: 'Support Type:', value: getSupportDescription() },
+    { label: 'Partitions:', value: inputs.partitionCount > 0 ? `${inputs.partitionCount} compartment${inputs.partitionCount > 1 ? 's' : ''}` : 'None' }
+  ];
+
+  doc.setFontSize(9);
+  let specY = yPosition + 7;
+  specs.forEach((spec, index) => {
+    const column = index % 2;
+    const row = Math.floor(index / 2);
+    const colWidth = (pageWidth - 2 * margin - 10) / 2;
+    const x = margin + 6 + (column * colWidth);
+    const y = specY + (row * 11);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(80, 80, 80);
+    doc.text(spec.label, x, y);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
+    const labelWidth = doc.getTextWidth(spec.label);
+    doc.text(spec.value, x + labelWidth + 2, y);
+  });
+
+  yPosition += 55;
+
+  // === PANEL SUMMARY TABLE ===
+
+  doc.setFontSize(11);
+  doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
+  doc.setFont('helvetica', 'bold');
+  doc.text('PANEL SUMMARY', margin, yPosition);
+
+  yPosition += 3;
+
+  // Calculate panel counts from BOM
+  const basePanelCount = bom.base?.reduce((sum, item) => sum + item.quantity, 0) || 0;
+  const wallPanelCount = bom.walls?.reduce((sum, item) => sum + item.quantity, 0) || 0;
+  const roofPanelCount = bom.roof?.reduce((sum, item) => sum + item.quantity, 0) || 0;
+  const partitionPanelCount = bom.partition?.reduce((sum, item) => sum + item.quantity, 0) || 0;
+  const totalPanelCount = basePanelCount + wallPanelCount + roofPanelCount + partitionPanelCount;
+
+  const panelData = [
+    ['Base / Floor Panels', basePanelCount.toString()],
+    ['Wall Panels', wallPanelCount.toString()],
+    ['Roof Panels', roofPanelCount.toString()]
+  ];
+
+  if (partitionPanelCount > 0) {
+    panelData.push(['Partition Panels', partitionPanelCount.toString()]);
+  }
+
+  panelData.push([{ content: 'TOTAL PANELS', styles: { fontStyle: 'bold' } }, { content: totalPanelCount.toString(), styles: { fontStyle: 'bold' } }]);
+
+  autoTable(doc, {
+    startY: yPosition,
+    head: [[{ content: 'Description', styles: { fillColor: darkGray } }, { content: 'Quantity', styles: { fillColor: darkGray, halign: 'center' } }]],
+    body: panelData,
+    theme: 'grid',
+    styles: { fontSize: 9, cellPadding: 3 },
+    headStyles: { fillColor: darkGray, textColor: 255, fontStyle: 'bold' },
+    columnStyles: { 0: { cellWidth: 120 }, 1: { cellWidth: 40, halign: 'center' } },
+    margin: { left: margin, right: margin }
+  });
+
+  yPosition = doc.lastAutoTable.finalY + 8;
+
+  // === INCLUDED ACCESSORIES TABLE ===
+
+  doc.setFontSize(11);
+  doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
+  doc.setFont('helvetica', 'bold');
+  doc.text('INCLUDED ACCESSORIES', margin, yPosition);
+
+  yPosition += 3;
+
+  // Build accessories list from inputs
+  const accessoriesData = [];
+
+  if (inputs.wliMaterial) {
+    accessoriesData.push([`Water Level Indicator - ${inputs.wliMaterial}`, '1']);
+  }
+
+  if (inputs.internalLadderQty > 0) {
+    const material = getLadderMaterialName(inputs.internalLadderMaterial);
+    accessoriesData.push([`Internal Ladder (${material})`, inputs.internalLadderQty.toString()]);
+  }
+
+  if (inputs.externalLadderQty > 0) {
+    const material = getLadderMaterialName(inputs.externalLadderMaterial);
+    const withCage = inputs.safetyCage ? ' with Safety Cage' : '';
+    accessoriesData.push([`External Ladder (${material})${withCage}`, inputs.externalLadderQty.toString()]);
+  }
+
+  // Manhole covers from BOM
+  const manholeItems = bom.accessories?.filter(item =>
+    item.description?.toLowerCase().includes('manhole') || item.sku?.toLowerCase().includes('mh')
+  ) || [];
+  if (manholeItems.length > 0) {
+    const totalManholes = manholeItems.reduce((sum, item) => sum + item.quantity, 0);
+    accessoriesData.push(['Manhole Cover', totalManholes.toString()]);
+  }
+
+  // Always include sealant and BNW
+  accessoriesData.push(['Sealant & Gaskets', 'Complete Set']);
+
+  if (inputs.bnwMaterial) {
+    const material = getLadderMaterialName(inputs.bnwMaterial);
+    accessoriesData.push([`Bolts, Nuts & Washers (${material})`, 'Complete Set']);
+  } else {
+    accessoriesData.push(['Bolts, Nuts & Washers', 'Complete Set']);
+  }
+
+  // Roof support if applicable
+  if (bom.roofSupport && bom.roofSupport.length > 0) {
+    accessoriesData.push(['Roof Support Beams', 'Included']);
+  }
+
+  // Stay system or tie rods
+  if (bom.stays && bom.stays.length > 0) {
+    accessoriesData.push(['Internal Stay System Components', 'Included']);
+  }
+  if (bom.tieRods && bom.tieRods.length > 0) {
+    accessoriesData.push(['Tie Rod System (SS304)', 'Included']);
+  }
+
+  autoTable(doc, {
+    startY: yPosition,
+    head: [[{ content: 'Description', styles: { fillColor: [103, 58, 183] } }, { content: 'Quantity', styles: { fillColor: [103, 58, 183], halign: 'center' } }]],
+    body: accessoriesData,
+    theme: 'grid',
+    styles: { fontSize: 9, cellPadding: 3 },
+    headStyles: { fillColor: [103, 58, 183], textColor: 255, fontStyle: 'bold' },
+    columnStyles: { 0: { cellWidth: 120 }, 1: { cellWidth: 40, halign: 'center' } },
+    margin: { left: margin, right: margin }
+  });
+
+  yPosition = doc.lastAutoTable.finalY + 8;
+
+  // === PIPE FITTINGS TABLE (if any) ===
+
+  if (inputs.pipeFittings && inputs.pipeFittings.length > 0) {
+    doc.setFontSize(11);
+    doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
+    doc.setFont('helvetica', 'bold');
+    doc.text('PIPE FITTINGS', margin, yPosition);
+
+    yPosition += 3;
+
+    const pipeFittingsData = inputs.pipeFittings.map(pf => {
+      const flangeType = pf.flangeType || 'Flanged';
+      const opening = pf.opening || 'Opening';
+      return [`${pf.size}mm ${flangeType} ${opening}`, pf.quantity?.toString() || '1'];
+    });
+
+    autoTable(doc, {
+      startY: yPosition,
+      head: [[{ content: 'Description', styles: { fillColor: [255, 112, 67] } }, { content: 'Quantity', styles: { fillColor: [255, 112, 67], halign: 'center' } }]],
+      body: pipeFittingsData,
+      theme: 'grid',
+      styles: { fontSize: 9, cellPadding: 3 },
+      headStyles: { fillColor: [255, 112, 67], textColor: 255, fontStyle: 'bold' },
+      columnStyles: { 0: { cellWidth: 120 }, 1: { cellWidth: 40, halign: 'center' } },
+      margin: { left: margin, right: margin }
+    });
+
+    yPosition = doc.lastAutoTable.finalY + 8;
+  }
+
+  // === PRICING SECTION ===
+
+  // Check if we need a new page
+  if (yPosition > pageHeight - 90) {
+    doc.addPage();
+    yPosition = margin;
+  }
+
+  doc.setFontSize(11);
+  doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
+  doc.setFont('helvetica', 'bold');
+  doc.text('QUOTATION PRICE', margin, yPosition);
+
+  yPosition += 6;
+
+  // Price box - green
+  doc.setFillColor(greenColor[0], greenColor[1], greenColor[2]);
+  doc.roundedRect(margin, yPosition, pageWidth - 2 * margin, 32, 3, 3, 'F');
+
+  doc.setFontSize(10);
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Total Quoted Price', margin + 10, yPosition + 12);
+
+  doc.setFontSize(8);
+  doc.text('Complete tank system with all panels, hardware & accessories', margin + 10, yPosition + 20);
+
+  doc.setFontSize(20);
+  doc.setFont('helvetica', 'bold');
+  const priceText = `RM ${finalPrice.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  doc.text(priceText, pageWidth - margin - 10, yPosition + 20, { align: 'right' });
+
+  yPosition += 42;
+
+  // === TERMS & CONDITIONS ===
+
+  doc.setFontSize(10);
+  doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
+  doc.setFont('helvetica', 'bold');
+  doc.text('TERMS & CONDITIONS', margin, yPosition);
+
+  yPosition += 6;
+
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(80, 80, 80);
+
+  const terms = [
+    'Quotation valid for 30 days from date of issue',
+    'Payment: 50% deposit upon confirmation, balance before delivery',
+    'Estimated lead time: 4-6 weeks from order confirmation',
+    'Delivery charges calculated based on location',
+    'Warranty: 12 months from date of delivery',
+    'Installation services available upon request (quoted separately)'
+  ];
+
+  terms.forEach(term => {
+    doc.text(`•  ${term}`, margin, yPosition);
+    yPosition += 5;
+  });
+
+  // === FOOTER ===
+
+  const footerY = pageHeight - 20;
+
+  doc.setDrawColor(200, 200, 200);
+  doc.setLineWidth(0.1);
+  doc.line(margin, footerY - 8, pageWidth - margin, footerY - 8);
+
+  doc.setFontSize(9);
+  doc.setTextColor(sunnikBlue[0], sunnikBlue[1], sunnikBlue[2]);
+  doc.setFont('helvetica', 'bold');
+  doc.text('SUNNIK SDN BHD', pageWidth / 2, footerY - 2, { align: 'center' });
+
+  doc.setFontSize(8);
+  doc.setTextColor(100, 100, 100);
+  doc.setFont('helvetica', 'normal');
+  doc.text('www.sunnik.net | sales@sunnik.net', pageWidth / 2, footerY + 4, { align: 'center' });
+
+  // === SAVE PDF ===
+
+  const fileName = `Sunnik_Quote_${quoteNumber}_${inputs.material}_${actualLength.toFixed(1)}x${actualWidth.toFixed(1)}x${actualHeight.toFixed(1)}m.pdf`;
+  doc.save(fileName);
+
+  return fileName;
+}
