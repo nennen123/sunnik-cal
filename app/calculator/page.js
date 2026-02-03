@@ -5,20 +5,24 @@
 // Updated: Added dimensionMode state for panel count vs meter input toggle
 // Preserved: Phase 2 functionality (partitionPositions, stays/cleats, Supabase pricing)
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { calculateBOM } from '../lib/bomCalculator';
 import { loadPrices, getPrice, getCacheStatus } from '../lib/supabasePriceLoader';
+import { getQuoteBySerial } from '../lib/quoteService';
 import TankInputs from './components/TankInputs';
 import BOMResults from './components/BOMResults';
-import QuoteSummary from './components/QuoteSummary';
 import SalesQuoteSummary from './components/SalesQuoteSummary';
 import { calculateCleats } from '../lib/cleatCalculator';
 import Link from 'next/link';
 import ProtectedRoute from '../components/ProtectedRoute';
 import { useAuth } from '../context/AuthContext';
 
-export default function CalculatorPage() {
+function CalculatorContent() {
   const { user, signOut, role } = useAuth();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const [editingQuote, setEditingQuote] = useState(null);
   const [markupPercentage, setMarkupPercentage] = useState(20);
   const [inputs, setInputs] = useState({
     length: 5,
@@ -82,6 +86,30 @@ export default function CalculatorPage() {
 
     initPrices();
   }, []);
+
+  // Load quote from URL param (?quote=SQ-2026-000001)
+  useEffect(() => {
+    const quoteSerial = searchParams.get('quote');
+    if (!quoteSerial) return;
+
+    async function loadQuote() {
+      const { quote, error: fetchErr } = await getQuoteBySerial(quoteSerial);
+      if (fetchErr || !quote) {
+        console.error('Failed to load quote:', fetchErr);
+        return;
+      }
+      setEditingQuote(quote);
+      // Restore tank config inputs
+      if (quote.tank_config) {
+        setInputs(quote.tank_config);
+      }
+      // Restore markup
+      if (quote.markup_percentage != null) {
+        setMarkupPercentage(quote.markup_percentage);
+      }
+    }
+    loadQuote();
+  }, [searchParams]);
 
   const handleCalculate = () => {
     if (!prices || Object.keys(prices).length === 0) {
@@ -217,6 +245,12 @@ export default function CalculatorPage() {
     }
   };
 
+  const handleNewQuote = () => {
+    setEditingQuote(null);
+    router.replace('/calculator');
+    handleReset();
+  };
+
   const handleReset = () => {
     setInputs({
       length: 5,
@@ -259,7 +293,7 @@ export default function CalculatorPage() {
       {/* Header */}
       <div className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 py-6">
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">
                 Sunnik Tank Calculator
@@ -267,10 +301,23 @@ export default function CalculatorPage() {
               <p className="text-sm text-gray-500 mt-1">
                 Professional BOM & Quotation System
               </p>
+              {editingQuote && (
+                <div className="flex items-center gap-3 mt-2">
+                  <span className="inline-flex items-center gap-1 px-3 py-1 bg-amber-100 text-amber-800 text-sm font-medium rounded-full">
+                    Editing: {editingQuote.serial_number}
+                  </span>
+                  <button
+                    onClick={handleNewQuote}
+                    className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                  >
+                    + New Quote
+                  </button>
+                </div>
+              )}
             </div>
 
-            <div className="flex items-center gap-6">
-              <div className="text-right">
+            <div className="flex items-center gap-4 md:gap-6 flex-wrap">
+              <div className="text-right hidden md:block">
                 {loading && (
                   <p className="text-sm text-yellow-600">
                     Loading price database...
@@ -296,7 +343,7 @@ export default function CalculatorPage() {
               </div>
 
               {/* User info and logout */}
-              <div className="flex items-center gap-3 pl-6 border-l border-gray-200">
+              <div className="flex items-center gap-3 md:pl-6 md:border-l border-gray-200">
                 <Link
                   href="/quotes"
                   className="text-sm text-blue-600 hover:text-blue-800 font-medium"
@@ -304,7 +351,7 @@ export default function CalculatorPage() {
                   My Quotes
                 </Link>
                 <span className="text-gray-300">|</span>
-                <span className="text-sm text-gray-600">{user?.email}</span>
+                <span className="text-sm text-gray-600 hidden sm:inline">{user?.email}</span>
                 <button
                   onClick={signOut}
                   className="text-sm text-red-600 hover:text-red-700 font-medium"
@@ -372,21 +419,17 @@ export default function CalculatorPage() {
           <div className="lg:col-span-2">
             {showResults && bom ? (
               <div className="space-y-6">
-                {role === 'sales' ? (
-                  /* Sales View - Customer-friendly quote with markup */
-                  <SalesQuoteSummary
-                    bom={bom}
-                    inputs={inputs}
-                    markupPercentage={markupPercentage}
-                    setMarkupPercentage={setMarkupPercentage}
-                    finalPrice={bom.summary.totalCost * (1 + markupPercentage / 100)}
-                  />
-                ) : (
-                  /* Admin View - Full BOM details */
-                  <>
-                    <QuoteSummary bom={bom} inputs={inputs} />
-                    <BOMResults bom={bom} inputs={inputs} />
-                  </>
+                <SalesQuoteSummary
+                  bom={bom}
+                  inputs={inputs}
+                  markupPercentage={markupPercentage}
+                  setMarkupPercentage={setMarkupPercentage}
+                  finalPrice={bom.summary.totalCost * (1 + markupPercentage / 100)}
+                  role={role}
+                  editingQuote={editingQuote}
+                />
+                {role !== 'sales' && (
+                  <BOMResults bom={bom} inputs={inputs} />
                 )}
               </div>
             ) : (
@@ -416,4 +459,11 @@ export default function CalculatorPage() {
     </ProtectedRoute>
   );
 }
-// Version 2.2.0 - Added authentication with ProtectedRoute wrapper
+
+export default function CalculatorPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><p className="text-gray-500">Loading calculator...</p></div>}>
+      <CalculatorContent />
+    </Suspense>
+  );
+}

@@ -143,34 +143,49 @@ function MyQuotesContent() {
                     <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Status
                     </th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {quotes.map((quote) => (
-                    <tr key={quote.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-blue-600">
-                        {quote.serial_number}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
-                        {formatDate(quote.created_at)}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                        {quote.customer_company || '—'}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
-                        {formatTankSize(quote.tank_config)}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
-                        {quote.tank_config?.material || '—'}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right font-medium">
-                        {formatPrice(quote.final_price)}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-center">
-                        <StatusBadge status={quote.status} />
-                      </td>
-                    </tr>
-                  ))}
+                  {quotes.map((quote) => {
+                    const isRevision = !!quote.parent_quote_id;
+                    return (
+                      <tr key={quote.id} className={`hover:bg-gray-50 ${isRevision ? 'border-l-4 border-l-blue-200' : ''}`}>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-blue-600">
+                          {isRevision && <span className="text-gray-400 mr-1">&crarr;</span>}
+                          {quote.serial_number}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                          {formatDate(quote.created_at)}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                          {quote.customer_company || '—'}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                          {formatTankSize(quote.tank_config)}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                          {quote.tank_config?.material || '—'}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right font-medium">
+                          {formatPrice(quote.final_price)}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-center">
+                          <StatusBadge status={quote.status} />
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-center">
+                          <Link
+                            href={`/calculator?quote=${quote.serial_number}`}
+                            className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                          >
+                            Edit
+                          </Link>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

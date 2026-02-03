@@ -3,7 +3,7 @@
 // Version: 1.3.0
 // Updated: Fixed dimension display to show actual meters (BUG-009 fix)
 
-export async function generatePDF(bom, inputs) {
+export async function generatePDF(bom, inputs, serialNumber) {
   // Dynamic imports for client-side only
   const { jsPDF } = await import('jspdf');
   const autoTable = (await import('jspdf-autotable')).default;
@@ -54,10 +54,10 @@ export async function generatePDF(bom, inputs) {
   doc.setFontSize(14);
   doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
   doc.setFont('helvetica', 'bold');
-  doc.text('QUOTATION', pageWidth - margin, yPosition + 2, { align: 'right' });
+  doc.text('BILL OF MATERIALS', pageWidth - margin, yPosition + 2, { align: 'right' });
 
   // Quote number and date
-  const quoteNumber = `SQ-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
+  const quoteNumber = serialNumber || `SQ-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
   doc.setFontSize(9);
   doc.setTextColor(100, 100, 100);
   doc.setFont('helvetica', 'normal');
@@ -84,7 +84,7 @@ export async function generatePDF(bom, inputs) {
 
   // Specification box
   doc.setFillColor(lightGray[0], lightGray[1], lightGray[2]);
-  doc.roundedRect(margin, yPosition, pageWidth - 2 * margin, 42, 2, 2, 'F');
+  doc.roundedRect(margin, yPosition, pageWidth - 2 * margin, 74, 2, 2, 'F');
 
   // Specs content
   doc.setFontSize(9);
@@ -145,22 +145,16 @@ export async function generatePDF(bom, inputs) {
     { label: 'Support:', value: getSupportTypeDisplay() }
   ];
 
-  let specY = yPosition + 5;
+  let specY = yPosition + 7;
   specs.forEach((spec, index) => {
-    const column = index % 3;
-    const row = Math.floor(index / 3);
-    const colWidth = (pageWidth - 2 * margin - 10) / 3;
-    const x = margin + 5 + (column * colWidth);
-    const y = specY + (row * 10);
-
+    const y = specY + (index * 8);
     doc.setFont('helvetica', 'bold');
-    doc.text(spec.label, x, y);
+    doc.text(spec.label, margin + 6, y);
     doc.setFont('helvetica', 'normal');
-    const labelWidth = doc.getTextWidth(spec.label);
-    doc.text(spec.value, x + labelWidth + 2, y);
+    doc.text(spec.value, margin + 55, y);
   });
 
-  yPosition += 58;
+  yPosition += 82;
 
   // === BILL OF MATERIALS SECTION ===
 
@@ -397,7 +391,7 @@ export async function generatePDF(bom, inputs) {
   // === SAVE PDF ===
 
   // Use actual dimensions for filename (calculated at top of function)
-  const fileName = `Sunnik_Quote_${quoteNumber}_${inputs.material}_${actualLength.toFixed(1)}x${actualWidth.toFixed(1)}x${actualHeight.toFixed(1)}m.pdf`;
+  const fileName = `Sunnik_BOM_${quoteNumber}_${inputs.material}_${actualLength.toFixed(1)}x${actualWidth.toFixed(1)}x${actualHeight.toFixed(1)}m.pdf`;
   doc.save(fileName);
 
   return fileName;
@@ -436,7 +430,7 @@ function getBuildStandardName(code) {
  * Includes panel summary, accessories, pipe fittings - NO SKU codes or itemized prices
  * Version: 3.0.0 - Added serial number, customer info
  */
-export async function generateSalesPDF(bom, inputs, markupPercentage, finalPrice, serialNumber, customerCompany, tankLocation) {
+export async function generateSalesPDF(bom, inputs, markupPercentage, finalPrice, serialNumber, customerCompany, tankLocation, commissionAmount = 0, customItems = [], subtotalAfterMarkup = null) {
   const { jsPDF } = await import('jspdf');
   const autoTable = (await import('jspdf-autotable')).default;
 
@@ -566,7 +560,7 @@ export async function generateSalesPDF(bom, inputs, markupPercentage, finalPrice
 
   // Specification box
   doc.setFillColor(lightGray[0], lightGray[1], lightGray[2]);
-  doc.roundedRect(margin, yPosition, pageWidth - 2 * margin, 48, 2, 2, 'F');
+  doc.roundedRect(margin, yPosition, pageWidth - 2 * margin, 68, 2, 2, 'F');
 
   const specs = [
     { label: 'Dimensions:', value: `${actualLength.toFixed(2)}m × ${actualWidth.toFixed(2)}m × ${actualHeight.toFixed(2)}m` },
@@ -581,22 +575,17 @@ export async function generateSalesPDF(bom, inputs, markupPercentage, finalPrice
   doc.setFontSize(9);
   let specY = yPosition + 7;
   specs.forEach((spec, index) => {
-    const column = index % 2;
-    const row = Math.floor(index / 2);
-    const colWidth = (pageWidth - 2 * margin - 10) / 2;
-    const x = margin + 6 + (column * colWidth);
-    const y = specY + (row * 11);
+    const y = specY + (index * 8);
 
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(80, 80, 80);
-    doc.text(spec.label, x, y);
+    doc.text(spec.label, margin + 6, y);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
-    const labelWidth = doc.getTextWidth(spec.label);
-    doc.text(spec.value, x + labelWidth + 2, y);
+    doc.text(spec.value, margin + 55, y);
   });
 
-  yPosition += 55;
+  yPosition += 76;
 
   // === PANEL SUMMARY TABLE ===
 
@@ -742,9 +731,14 @@ export async function generateSalesPDF(bom, inputs, markupPercentage, finalPrice
   }
 
   // === PRICING SECTION ===
+  // Customer-facing: only show additional items (if any) + final total
+  // Internal details (markup %, commission) are NEVER shown on customer PDF
+
+  const hasCustomItems = customItems && customItems.filter(i => i.description && i.price).length > 0;
+  const spaceNeeded = hasCustomItems ? 120 : 90;
 
   // Check if we need a new page
-  if (yPosition > pageHeight - 90) {
+  if (yPosition > pageHeight - spaceNeeded) {
     doc.addPage();
     yPosition = margin;
   }
@@ -755,6 +749,33 @@ export async function generateSalesPDF(bom, inputs, markupPercentage, finalPrice
   doc.text('QUOTATION PRICE', margin, yPosition);
 
   yPosition += 6;
+
+  // Show additional items as customer-visible line items (no internal breakdown)
+  if (hasCustomItems) {
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(80, 80, 80);
+
+    doc.text('Additional Items:', margin + 5, yPosition + 5);
+    yPosition += 7;
+
+    customItems.forEach(item => {
+      if (item.description && item.price) {
+        doc.text(`•  ${item.description}`, margin + 8, yPosition + 5);
+        doc.text(
+          `RM ${Number(item.price).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          pageWidth - margin - 5, yPosition + 5, { align: 'right' }
+        );
+        yPosition += 7;
+      }
+    });
+
+    yPosition += 2;
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.3);
+    doc.line(margin, yPosition, pageWidth - margin, yPosition);
+    yPosition += 4;
+  }
 
   // Price box - green
   doc.setFillColor(greenColor[0], greenColor[1], greenColor[2]);
