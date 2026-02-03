@@ -13,6 +13,7 @@ import BOMResults from './components/BOMResults';
 import QuoteSummary from './components/QuoteSummary';
 import SalesQuoteSummary from './components/SalesQuoteSummary';
 import { calculateCleats } from '../lib/cleatCalculator';
+import Link from 'next/link';
 import ProtectedRoute from '../components/ProtectedRoute';
 import { useAuth } from '../context/AuthContext';
 
@@ -296,6 +297,13 @@ export default function CalculatorPage() {
 
               {/* User info and logout */}
               <div className="flex items-center gap-3 pl-6 border-l border-gray-200">
+                <Link
+                  href="/quotes"
+                  className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                >
+                  My Quotes
+                </Link>
+                <span className="text-gray-300">|</span>
                 <span className="text-sm text-gray-600">{user?.email}</span>
                 <button
                   onClick={signOut}
