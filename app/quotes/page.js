@@ -48,14 +48,18 @@ function MyQuotesContent() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    if (!user?.id) {
+      setLoading(false);
+      return;
+    }
     async function fetchQuotes() {
-      if (!user?.id) return;
       setLoading(true);
+      setError(null);
       const { quotes: data, error: err } = await getMyQuotes(user.id);
       if (err) {
         setError(err.message || 'Failed to load quotes');
       } else {
-        setQuotes(data);
+        setQuotes(data || []);
       }
       setLoading(false);
     }
