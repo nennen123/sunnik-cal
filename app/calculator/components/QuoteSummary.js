@@ -128,15 +128,17 @@ export default function QuoteSummary({ bom, inputs }) {
           </div>
         </div>
 
-        {/* Build Standard */}
-        <div className="bg-white bg-opacity-10 rounded-lg p-3">
-          <div className="text-xs uppercase tracking-wide text-blue-200 mb-1">
-            Build Standard
+        {/* Build Standard - hidden for SS materials */}
+        {inputs.material !== 'SS316' && inputs.material !== 'SS304' && (
+          <div className="bg-white bg-opacity-10 rounded-lg p-3">
+            <div className="text-xs uppercase tracking-wide text-blue-200 mb-1">
+              Build Standard
+            </div>
+            <div className="font-semibold text-sm">
+              {inputs.buildStandard || 'BSI'}
+            </div>
           </div>
-          <div className="font-semibold text-sm">
-            {inputs.buildStandard || 'BSI'}
-          </div>
-        </div>
+        )}
 
         {/* Panel Type */}
         <div className="bg-white bg-opacity-10 rounded-lg p-3">
@@ -255,8 +257,8 @@ export default function QuoteSummary({ bom, inputs }) {
         </div>
       )}
 
-      {/* Build Standard Info */}
-      {bom.summary.buildStandard && (
+      {/* Build Standard Info - hidden for SS materials */}
+      {bom.summary.buildStandard && inputs.material !== 'SS316' && inputs.material !== 'SS304' && (
         <div className="mt-4 text-center text-xs text-blue-200">
           {bom.summary.buildStandard === 'LPCB' && '🔥 LPCB: Includes Vortex Pipe for fire protection'}
           {bom.summary.buildStandard === 'MS1390' && '🇲🇾 MS1390: EPDM sealant, ABS roof pipe (SPAN approved)'}

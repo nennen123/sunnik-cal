@@ -6,7 +6,7 @@
 // Updated: Smart partition positioning with auto-distribute and customize option
 // Preserved: ALL v1.2.0 functionality (WLI 6 options, BNW 6 options, Tank Finish, Pipe Fittings)
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 export default function TankInputs({ inputs, setInputs }) {
   // Local state for customize mode
@@ -14,6 +14,35 @@ export default function TankInputs({ inputs, setInputs }) {
 
   // Use inputs.dimensionMode as source of truth (default to 'panel' if not set)
   const dimensionMode = inputs.dimensionMode || 'panel';
+
+  // Auto-update roof thickness when material or panel type changes
+  useEffect(() => {
+    if (inputs.material === 'SS316' || inputs.material === 'SS304') {
+      setInputs(prev => ({ ...prev, roofThickness: prev.panelType === 'm' ? 1.0 : 1.2 }));
+    } else {
+      setInputs(prev => ({ ...prev, roofThickness: 1.5 }));
+    }
+  }, [inputs.material, inputs.panelType]);
+
+  // Auto-select matching accessory materials based on tank material
+  useEffect(() => {
+    // MS tanks use HDG accessories (standard coating), all others match tank material
+    const accessoryMat = inputs.material === 'MS' ? 'HDG' : inputs.material;
+    if (['SS316', 'SS304', 'HDG', 'MS'].includes(inputs.material)) {
+      setInputs(prev => ({
+        ...prev,
+        wliMaterial: accessoryMat,
+        internalLadderMaterial: accessoryMat,
+        externalLadderMaterial: accessoryMat,
+        bnwMaterial: accessoryMat,
+        pipeFittings: (prev.pipeFittings || []).map(pf => ({
+          ...pf,
+          outsideMaterial: accessoryMat,
+          insideMaterial: accessoryMat
+        }))
+      }));
+    }
+  }, [inputs.material]);
 
   const handleChange = (field, value) => {
     setInputs(prev => ({ ...prev, [field]: value }));
@@ -229,43 +258,45 @@ export default function TankInputs({ inputs, setInputs }) {
         )}
       </div>
 
-      {/* Build Standard Selector */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Build Standard
-        </label>
-        <select
-          value={inputs.buildStandard || (isFRP ? 'MS1390' : 'BSI')}
-          onChange={(e) => handleChange('buildStandard', e.target.value)}
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        >
-          {isFRP ? (
-            <>
-              <option value="MS1390">MS1390:2010 (Malaysian - SPAN Approved)</option>
-              <option value="SS245">SS245:2014 (Singapore Standard)</option>
-            </>
-          ) : (
-            <>
-              <option value="BSI">BSI (British Standard)</option>
-              <option value="LPCB">LPCB (Loss Prevention Certification Board)</option>
-              <option value="SANS">SANS 10329:2020 (South African)</option>
-            </>
-          )}
-        </select>
-        <p className="text-xs text-gray-500 mt-1">
-          {isFRP ? (
-            inputs.buildStandard === 'MS1390'
-              ? 'Malaysian Standard - EPDM sealant, ABS roof pipe'
-              : 'Singapore Standard - PVC Foam sealant, UPVC roof pipe'
-          ) : (
-            <>
-              {inputs.buildStandard === 'SANS' && 'Progressive thickness based on height'}
-              {inputs.buildStandard === 'BSI' && '5mm (1-3 panels), 6mm base (4+ panels)'}
-              {inputs.buildStandard === 'LPCB' && '5mm (1-3 panels), 6mm base (4+ panels) + Vortex Pipe'}
-            </>
-          )}
-        </p>
-      </div>
+      {/* Build Standard - Only for HDG, MS, and FRP (NOT SS materials) */}
+      {inputs.material !== 'SS316' && inputs.material !== 'SS304' && (
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Build Standard
+          </label>
+          <select
+            value={inputs.buildStandard || (isFRP ? 'MS1390' : 'BSI')}
+            onChange={(e) => handleChange('buildStandard', e.target.value)}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          >
+            {isFRP ? (
+              <>
+                <option value="MS1390">MS1390:2010 (Malaysian - SPAN Approved)</option>
+                <option value="SS245">SS245:2014 (Singapore Standard)</option>
+              </>
+            ) : (
+              <>
+                <option value="BSI">BSI (British Standard)</option>
+                <option value="LPCB">LPCB (Loss Prevention Certification Board)</option>
+                <option value="SANS">SANS 10329:2020 (South African)</option>
+              </>
+            )}
+          </select>
+          <p className="text-xs text-gray-500 mt-1">
+            {isFRP ? (
+              inputs.buildStandard === 'MS1390'
+                ? 'Malaysian Standard - EPDM sealant, ABS roof pipe'
+                : 'Singapore Standard - PVC Foam sealant, UPVC roof pipe'
+            ) : (
+              <>
+                {inputs.buildStandard === 'SANS' && 'Progressive thickness based on height'}
+                {inputs.buildStandard === 'BSI' && '5mm (1-3 panels), 6mm base (4+ panels)'}
+                {inputs.buildStandard === 'LPCB' && '5mm (1-3 panels), 6mm base (4+ panels) + Vortex Pipe'}
+              </>
+            )}
+          </p>
+        </div>
+      )}
 
       {/* Panel Type Selector */}
       <div>
@@ -648,33 +679,35 @@ export default function TankInputs({ inputs, setInputs }) {
         </div>
       )}
 
-      {/* Roof Thickness */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+      {/* Roof Thickness - Dynamic options based on material */}
+      <div className="space-y-2">
+        <label className="block text-sm font-medium text-gray-700">
           Roof Thickness
         </label>
-        <div className="grid grid-cols-2 gap-3">
-          <button
-            onClick={() => handleChange('roofThickness', 1.5)}
-            className={`py-2 px-4 rounded-lg font-medium transition-colors ${
-              inputs.roofThickness === 1.5
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            1.5mm (Standard)
-          </button>
-          <button
-            onClick={() => handleChange('roofThickness', 3.0)}
-            className={`py-2 px-4 rounded-lg font-medium transition-colors ${
-              inputs.roofThickness === 3.0
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            3.0mm (Custom)
-          </button>
-        </div>
+        <select
+          value={inputs.roofThickness}
+          onChange={(e) => handleChange('roofThickness', parseFloat(e.target.value))}
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+        >
+          {inputs.material === 'SS316' || inputs.material === 'SS304' ? (
+            inputs.panelType === 'm' ? (
+              <>
+                <option value="1.0">1.0mm (Standard - SS Metric)</option>
+                <option value="1.5">1.5mm (Custom)</option>
+              </>
+            ) : (
+              <>
+                <option value="1.2">1.2mm (Standard - SS Imperial)</option>
+                <option value="1.5">1.5mm (Custom)</option>
+              </>
+            )
+          ) : (
+            <>
+              <option value="1.5">1.5mm (Standard)</option>
+              <option value="3.0">3.0mm (Custom Heavy Duty)</option>
+            </>
+          )}
+        </select>
       </div>
 
       {/* Support Structure Options */}

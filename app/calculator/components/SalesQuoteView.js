@@ -78,10 +78,13 @@ export default function SalesQuoteView({ bom, inputs, markupPercentage, setMarku
             <div className="text-xs uppercase tracking-wide text-blue-200 mb-1">Material</div>
             <div className="font-semibold text-sm">{materialNames[inputs.material] || inputs.material}</div>
           </div>
-          <div className="bg-white bg-opacity-10 rounded-lg p-3">
-            <div className="text-xs uppercase tracking-wide text-blue-200 mb-1">Build Standard</div>
-            <div className="font-semibold text-sm">{inputs.buildStandard || 'BSI'}</div>
-          </div>
+          {/* Build Standard - hidden for SS materials */}
+          {inputs.material !== 'SS316' && inputs.material !== 'SS304' && (
+            <div className="bg-white bg-opacity-10 rounded-lg p-3">
+              <div className="text-xs uppercase tracking-wide text-blue-200 mb-1">Build Standard</div>
+              <div className="font-semibold text-sm">{inputs.buildStandard || 'BSI'}</div>
+            </div>
+          )}
           <div className="bg-white bg-opacity-10 rounded-lg p-3">
             <div className="text-xs uppercase tracking-wide text-blue-200 mb-1">Panel Type</div>
             <div className="font-semibold text-sm">

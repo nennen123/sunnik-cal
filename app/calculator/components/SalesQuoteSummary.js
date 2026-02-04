@@ -367,10 +367,13 @@ export default function SalesQuoteSummary({ bom, inputs, markupPercentage, setMa
               <span className="text-gray-600">Material</span>
               <span className="font-semibold text-gray-900">{materialNames[inputs.material] || inputs.material}</span>
             </div>
-            <div className="flex justify-between py-2 border-b border-gray-100">
-              <span className="text-gray-600">Build Standard</span>
-              <span className="font-semibold text-gray-900">{buildStandardNames[inputs.buildStandard] || inputs.buildStandard}</span>
-            </div>
+            {/* Build Standard - hidden for SS materials */}
+            {inputs.material !== 'SS316' && inputs.material !== 'SS304' && (
+              <div className="flex justify-between py-2 border-b border-gray-100">
+                <span className="text-gray-600">Build Standard</span>
+                <span className="font-semibold text-gray-900">{buildStandardNames[inputs.buildStandard] || inputs.buildStandard}</span>
+              </div>
+            )}
             <div className="flex justify-between py-2 border-b border-gray-100">
               <span className="text-gray-600">Partitions</span>
               <span className="font-semibold text-gray-900">

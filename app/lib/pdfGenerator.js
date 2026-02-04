@@ -139,7 +139,9 @@ export async function generatePDF(bom, inputs, serialNumber) {
     { label: 'Nominal Volume:', value: `${volumeLiters.toLocaleString()} L (${volume.toFixed(2)} m³)` },
     { label: 'Effective Volume:', value: `${effectiveVolumeLiters.toLocaleString()} L (${freeboardMM}mm freeboard)` },
     { label: 'Material:', value: getMaterialName(inputs.material) },
-    { label: 'Build Standard:', value: getBuildStandardName(inputs.buildStandard) },
+    ...(inputs.material !== 'SS316' && inputs.material !== 'SS304'
+      ? [{ label: 'Build Standard:', value: getBuildStandardName(inputs.buildStandard) }]
+      : []),
     { label: 'Panel Type:', value: `${inputs.panelType === 'm' ? 'Metric (1m)' : 'Imperial (4ft)'} Type ${inputs.panelTypeDetail || 1}` },
     { label: 'Partitions:', value: inputs.partitionCount > 0 ? `${inputs.partitionCount}` : 'None' },
     { label: 'Support:', value: getSupportTypeDisplay() }
@@ -310,7 +312,10 @@ export async function generatePDF(bom, inputs, serialNumber) {
   doc.text('GRAND TOTAL', margin + 8, totalBoxY + 9);
 
   doc.setFontSize(8);
-  doc.text(`${bom.summary.totalPanels} panels | ${inputs.buildStandard || 'BSI'} standard`, margin + 8, totalBoxY + 15);
+  const totalSubtext = inputs.material === 'SS316' || inputs.material === 'SS304'
+    ? `${bom.summary.totalPanels} panels`
+    : `${bom.summary.totalPanels} panels | ${inputs.buildStandard || 'BSI'} standard`;
+  doc.text(totalSubtext, margin + 8, totalBoxY + 15);
 
   doc.setFontSize(16);
   doc.setFont('helvetica', 'bold');
@@ -567,7 +572,9 @@ export async function generateSalesPDF(bom, inputs, markupPercentage, finalPrice
     { label: 'Nominal Volume:', value: `${volumeLiters.toLocaleString()} Liters` },
     { label: 'Effective Capacity:', value: `${effectiveVolumeLiters.toLocaleString()} Liters` },
     { label: 'Material:', value: getMaterialName(inputs.material) },
-    { label: 'Build Standard:', value: getBuildStandardName(inputs.buildStandard) },
+    ...(inputs.material !== 'SS316' && inputs.material !== 'SS304'
+      ? [{ label: 'Build Standard:', value: getBuildStandardName(inputs.buildStandard) }]
+      : []),
     { label: 'Support Type:', value: getSupportDescription() },
     { label: 'Partitions:', value: inputs.partitionCount > 0 ? `${inputs.partitionCount} compartment${inputs.partitionCount > 1 ? 's' : ''}` : 'None' }
   ];

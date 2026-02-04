@@ -933,12 +933,128 @@ function calculateFRPStructuralSupport(inputs) {
  * @param {number} heightMeters - Tank height in meters
  * @param {string} panelType - 'm' (metric) or 'i' (imperial)
  * @param {string} buildStandard - 'SANS', 'BSI', or 'LPCB'
+ * @param {string} material - 'SS316', 'SS304', 'HDG', or 'MS'
  */
-export function getThicknessByHeight(heightMeters, panelType, buildStandard = 'SANS') {
+export function getThicknessByHeight(heightMeters, panelType, buildStandard = 'SANS', material = 'HDG') {
+  const heightMM = heightMeters * 1000;
   const panelSize = panelType === 'm' ? 1.0 : 1.22;
   const numTiers = Math.ceil(heightMeters / panelSize);
 
-  console.log(`📐 Calculating thickness for ${heightMeters}m height, ${numTiers} tiers (${panelType === 'm' ? 'Metric' : 'Imperial'}) - ${buildStandard} standard`);
+  console.log(`📐 Calculating thickness for ${heightMeters}m height, ${numTiers} tiers (${panelType === 'm' ? 'Metric' : 'Imperial'}) - ${buildStandard} standard, ${material} material`);
+
+  // ============================================
+  // SS316 & SS304 SPECIFIC THICKNESS (DIFFERENT FROM HDG/MS)
+  // ============================================
+
+  if (material === 'SS316' || material === 'SS304') {
+
+    if (panelType === 'm') {
+      // METRIC PANELS (1m × 1m) - SS MATERIALS
+
+      if (heightMM >= 1000 && heightMM <= 1020) {
+        return {
+          base: 2.0,
+          wall: 2.0,
+          roof: 1.0,  // SS metric roof = 1.0mm
+          tiers: [{ height: 1, thickness: 2.0, code: 'A' }]
+        };
+      } else if (heightMM >= 2000 && heightMM <= 2040) {
+        return {
+          base: 2.5,
+          wall: 2.5,
+          roof: 1.0,  // SS metric roof = 1.0mm
+          tiers: [
+            { height: 1, thickness: 2.5, code: 'A' },
+            { height: 2, thickness: 2.0, code: 'A' }
+          ]
+        };
+      } else if (heightMM >= 3000 && heightMM <= 3060) {
+        return {
+          base: 3.0,
+          wall: 3.0,
+          roof: 1.0,  // SS metric roof = 1.0mm
+          tiers: [
+            { height: 1, thickness: 3.0, code: 'A' },
+            { height: 2, thickness: 2.5, code: 'A' },
+            { height: 3, thickness: 2.0, code: 'C' }
+          ]
+        };
+      } else if (heightMM >= 4000 && heightMM <= 4080) {
+        return {
+          base: 4.0,
+          wall: 4.0,
+          roof: 1.0,  // SS metric roof = 1.0mm
+          tiers: [
+            { height: 1, thickness: 4.0, code: 'A' },
+            { height: 2, thickness: 3.0, code: 'A' },
+            { height: 3, thickness: 2.5, code: 'A' },
+            { height: 4, thickness: 2.0, code: 'C' }
+          ]
+        };
+      }
+
+    } else if (panelType === 'i') {
+      // IMPERIAL PANELS (4ft × 4ft) - SS MATERIALS
+
+      if (heightMM >= 1200 && heightMM <= 1220) {
+        // 4ft (1.22m)
+        return {
+          base: 2.0,
+          wall: 2.0,
+          roof: 1.2,  // SS imperial roof = 1.2mm
+          tiers: [{ height: 1, thickness: 2.0, code: 'A' }]
+        };
+      } else if (heightMM >= 2400 && heightMM <= 2440) {
+        // 8ft (2.44m)
+        return {
+          base: 2.5,
+          wall: 2.5,
+          roof: 1.2,  // SS imperial roof = 1.2mm
+          tiers: [
+            { height: 1, thickness: 2.5, code: 'A' },
+            { height: 2, thickness: 2.0, code: 'A' }
+          ]
+        };
+      } else if (heightMM >= 3600 && heightMM <= 3660) {
+        // 12ft (3.66m)
+        return {
+          base: 3.0,
+          wall: 3.0,
+          roof: 1.2,  // SS imperial roof = 1.2mm
+          tiers: [
+            { height: 1, thickness: 3.0, code: 'A' },
+            { height: 2, thickness: 2.5, code: 'A' },
+            { height: 3, thickness: 2.0, code: 'C' }
+          ]
+        };
+      } else if (heightMM >= 4800 && heightMM <= 4880) {
+        // 16ft (4.88m)
+        return {
+          base: 4.0,
+          wall: 4.0,
+          roof: 1.2,  // SS imperial roof = 1.2mm
+          tiers: [
+            { height: 1, thickness: 4.0, code: 'A' },
+            { height: 2, thickness: 3.0, code: 'A' },
+            { height: 3, thickness: 2.5, code: 'A' },
+            { height: 4, thickness: 2.0, code: 'C' }
+          ]
+        };
+      }
+    }
+
+    // Default fallback for SS materials
+    return {
+      base: 2.0,
+      wall: 2.0,
+      roof: panelType === 'm' ? 1.0 : 1.2,
+      tiers: [{ height: 1, thickness: 2.0, code: 'A' }]
+    };
+  }
+
+  // ============================================
+  // EXISTING HDG/MS LOGIC CONTINUES BELOW
+  // ============================================
 
   // BSI and LPCB use simplified thickness logic
   if (buildStandard === 'BSI' || buildStandard === 'LPCB') {
@@ -1916,8 +2032,8 @@ export function calculateSteelBOM(inputs) {
   // Determine which side is shorter (for partition orientation)
   const partitionSpan = Math.min(lengthPanels, widthPanels);
 
-  // Get thickness specification based on build standard
-  const thickness = getThicknessByHeight(height, panelType, buildStandard);
+  // Get thickness specification based on build standard and material
+  const thickness = getThicknessByHeight(height, panelType, buildStandard, material);
   const totalTiers = thickness.tiers.length;
 
   const bom = {
