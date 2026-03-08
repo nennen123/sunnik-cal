@@ -1474,13 +1474,28 @@ export function calculateFRPBOM(inputs) {
     }
   } else {
     // Normal tanks (3×3+): Original logic
-    // Main base panels (interior)
+    // Interior base panels (some convert to AB if partitions exist)
     const interiorBaseCount = Math.max(0, (lengthPanels - 2) * (widthPanels - 2));
-    if (interiorBaseCount > 0) {
+
+    const frpAbCount = partitionCount > 0
+      ? Math.min(Math.max(0, partitionSpan - 2) * partitionCount, interiorBaseCount)
+      : 0;
+    const remainingFrpInterior = interiorBaseCount - frpAbCount;
+
+    if (remainingFrpInterior > 0) {
       bom.base.push({
         sku: `3B${depthCode}-FRP`,
         description: `FRP Base Panel B${depthCode} - Interior`,
-        quantity: interiorBaseCount,
+        quantity: remainingFrpInterior,
+        unitPrice: 0
+      });
+    }
+
+    if (frpAbCount > 0) {
+      bom.base.push({
+        sku: `3B${depthCode}-FRP-AB`,
+        description: `FRP Base Panel B${depthCode}-AB - Partition Support`,
+        quantity: frpAbCount,
         unitPrice: 0
       });
     }
@@ -1501,17 +1516,6 @@ export function calculateFRPBOM(inputs) {
       sku: `3B${depthCode}-FRP`,
       description: `FRP Base Panel B${depthCode} - Corner`,
       quantity: 4,
-      unitPrice: 0
-    });
-  }
-
-  // Partition base support (AB panels) - only for normal+ tanks
-  if (partitionCount > 0 && tankSizeCategory === 'normal') {
-    const partitionBaseCount = partitionSpan * partitionCount;
-    bom.base.push({
-      sku: `3B${depthCode}-FRP-AB`,
-      description: `FRP Base Panel B${depthCode}-AB - Partition Support`,
-      quantity: partitionBaseCount,
       unitPrice: 0
     });
   }
@@ -2144,41 +2148,31 @@ export function calculateSteelBOM(inputs) {
       });
     }
 
-    // Interior base panels
-    const interiorBaseCount = Math.max(0, (lengthPanels - 2) * (widthPanels - 2));
-    if (interiorBaseCount > 0) {
+    // Interior base panels (some convert to AB if partitions exist)
+    const interiorBase = (lengthPanels - 2) * (widthPanels - 2);
+
+    const abPanelCount = partitionCount > 0
+      ? Math.min(Math.max(0, partitionSpan - 2) * partitionCount, interiorBase)
+      : 0;
+    const remainingInterior = interiorBase - abPanelCount;
+
+    if (remainingInterior > 0) {
       bom.base.push({
         sku: generateSteelSKU(typePrefix, 'A', baseThickness, panelType, materialCode, baseDiameter),
         description: `Interior Base Panel - ${baseThickness}mm${isType2 ? ' [Type 2]' : ''}`,
-        quantity: interiorBaseCount,
+        quantity: remainingInterior,
         unitPrice: 0
       });
     }
-  }
 
-  // Partition base support
-  if (partitionCount > 0) {
-    bom.base.push({
-      sku: generateSteelSKU(typePrefix, 'AB', baseThickness, panelType, materialCode, baseDiameter),
-      description: `Partition Base Support - ${baseThickness}mm${isType2 ? ' [Type 2]' : ''}`,
-      quantity: partitionSpan * partitionCount,
-      unitPrice: 0
-    });
-
-    // Partition corner supports
-    bom.base.push({
-      sku: generateSteelSKU(typePrefix, 'BCL', baseThickness, panelType, materialCode, baseDiameter),
-      description: `Partition Corner Left - ${baseThickness}mm${isType2 ? ' [Type 2]' : ''}`,
-      quantity: partitionCount,
-      unitPrice: 0
-    });
-
-    bom.base.push({
-      sku: generateSteelSKU(typePrefix, 'BCR', baseThickness, panelType, materialCode, baseDiameter),
-      description: `Partition Corner Right - ${baseThickness}mm${isType2 ? ' [Type 2]' : ''}`,
-      quantity: partitionCount,
-      unitPrice: 0
-    });
+    if (abPanelCount > 0) {
+      bom.base.push({
+        sku: generateSteelSKU(typePrefix, 'AB', baseThickness, panelType, materialCode, baseDiameter),
+        description: `Partition Base Support - ${baseThickness}mm${isType2 ? ' [Type 2]' : ''}`,
+        quantity: abPanelCount,
+        unitPrice: 0
+      });
+    }
   }
 
   // ===========================
