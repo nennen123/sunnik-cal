@@ -1,7 +1,7 @@
 # CLAUDE.md — Sunnik Tank Calculator
 
-> **Last Updated:** February 24, 2026
-> **Version:** 2.3.0 (deployed)
+> **Last Updated:** March 17, 2026
+> **Version:** 2.3.1 (deployed)
 > **Owner:** Non-coder building with AI assistance. Accuracy over speed, always.
 
 ---
@@ -113,13 +113,16 @@ Panels are classified by their position in the tank grid:
 | AB | Partition junction | Where partition meets perimeter wall |
 | BCL | Corner Left | Left-handed corner panel |
 | BCR | Corner Right | Right-handed corner panel |
-| B¢ / C¢ | Partition column | Partition-specific panels (¢ symbol) |
+| B¢ / C¢ | Partition column (Type 1) | Partition-specific panels (¢ symbol) |
+| PA | Partition panel (Type 2) | Full partition panel, bottom tier thickness only |
 
 ### Steel Types
 | Type | Joint Style | Stay Direction | Materials |
 |------|-------------|----------------|-----------|
 | Type 1 | 45° bend then 90° | Diagonal (S stays) | SS316, SS304, HDG, MS |
 | Type 2 | 90° L-shape | Horizontal (HS) + Vertical (VS) | HDG, MS only |
+
+**Partition panel differences:** Type 1 uses B¢/C¢ panels; Type 2 uses PA panels instead.
 
 ### Panel Sizes
 - **Metric:** 1m × 1m (code: `m`)
@@ -145,6 +148,18 @@ Thicker panels at the bottom (more water pressure), thinner at the top:
 | 3m | 4.5mm | 4.5mm | 3.0mm | 3.0mm | — |
 | 4m | 5.0mm | 5.0mm | 4.5mm | 3.0mm | 3.0mm |
 
+### Partition Wall Panels
+Total partition wall panels = **span × tiers × partitions** (both types).
+
+**Type 1 partition (B¢/C¢):**
+- Bottom tier: C¢ corners (qty = 2 × P) + B¢ main (qty = max(1, span-2) × P)
+- Upper tiers: B¢ edges only (qty = 2 × P) + standard A panels in middle (qty = max(0, span-2) × P)
+
+**Type 2 partition (PA):**
+- Bottom tier: PA panels (qty = span × P, at bottom tier thickness)
+- Upper tiers: AB panels for middle positions (qty = max(0, span-2) × P per tier)
+- TBAB panels are handled by the stay system, not the partition wall section
+
 ---
 
 ## SKU Format Patterns
@@ -161,9 +176,19 @@ Example: 1A3-i-S1    → Type 1, A panel, 3mm, Imperial, SS304
 ```
 Format: 2[Location][Thickness]-[Size]-[Diameter]-[Material]
 Example: 2A3-i-14-S1    → Type 2, A panel, 3mm, Imperial, Ø14, SS304
-         2A45-i-HDG     → Type 2, A panel, 4.5mm, Imperial, HDG (no diameter)
+         2A45-i-14-HDG  → Type 2, A panel, 4.5mm, Imperial, Ø14, HDG
 
-Note: HDG Type 2 does NOT include diameter code (database pattern)
+Note: HDG Type 2: Most panels omit diameter code, but PA (partition) panels include it
+```
+
+### Steel Type 2 Partition
+```
+Format: 2PA[Thickness]-[Size]-[Diameter]-[Material]
+Example: 2PA6-m-18-HDG  → Type 2, Partition A, 6mm, Metric, Ø18, HDG
+         2PA45-i-14-S1  → Type 2, Partition A, 4.5mm, Imperial, Ø14, SS304
+
+Note: PA panels always use bottom tier thickness. Ø18 at bottom tier, Ø14 at upper tiers.
+Upper tier partition middles use standard AB panels (not PA).
 ```
 
 ### FRP
@@ -301,6 +326,7 @@ Uses jsPDF library. Each BOM section is rendered as a table.
 | Type 1 stay system | v2.2.1 | 10 real engineering drawings |
 | Type 2 stay system | v2.2.1 | 10 real engineering drawings |
 | Cleat system (both types) | v2.3.0 | 8 real tank BOMs |
+| Type 2 partition (PA panels) | v2.3.1 | 8 real engineering drawings |
 | FRP tie rod system | v2.1.0 | 100% match to drawings |
 | Supabase price loading | v1.0 | 11,578 SKUs |
 | PDF generation | v1.3.0 | Manual review |
@@ -320,7 +346,9 @@ Uses jsPDF library. Each BOM section is rendered as a table.
 
 1. **Engineering Drawing Generator** — SVG panel & stay arrangement diagrams
 2. **Odd-Shape Tank Calculator** — L-shape, U-shape, column cutout tanks using grid-based input
-3. See `PHASE2_DEVELOPMENT_PLAN.md` in documentation folder for full spec
+3. **TBAB partition panels** — tied to Type 2 stay system, 8 drawings available for validation
+4. **FRP partition panels** — PF/P with tier-specific depth codes, 1 drawing available for validation
+5. See `PHASE2_DEVELOPMENT_PLAN.md` in documentation folder for full spec
 
 ---
 
