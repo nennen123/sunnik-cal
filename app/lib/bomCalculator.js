@@ -1628,35 +1628,29 @@ export function calculateFRPBOM(inputs) {
   // ===========================
 
   if (partitionCount > 0) {
-    for (let tier = 1; tier <= fullTiers; tier++) {
-      // Partition panels use tier-specific depth code (same as sidewalls)
-      const partitionDepthCode = getFRPTierDepthCode(height, tier - 1);
+    const totalTiers = fullTiers + (hasHalfTier ? 1 : 0);
 
-      // Partition corner panels (P-BCL, P-BCR)
+    // FRP partition uses tier-specific depth codes and panel types:
+    //   Bottom tier: P (0.93M width) at full tank depth code
+    //   Middle tiers: PF (full 1M width) at decreasing depth codes
+    //   Top tier: P (0.93M width) at depth code 10
+    // Validated against FRP 5M×3M×3M+1P drawing
+
+    for (let tier = 1; tier <= totalTiers; tier++) {
+      // Depth code counts down: bottom=totalTiers×10, top=10
+      const tierDepthCode = String((totalTiers - tier + 1) * 10).padStart(2, '0');
+
+      // Edge tiers (bottom and top) use P (0.93M), middle tiers use PF (full 1M)
+      const isEdgeTier = (tier === 1 || tier === totalTiers);
+      // For single-tier tanks, it's both bottom and top, so use P
+      const panelPrefix = (isEdgeTier || totalTiers === 1) ? 'P' : 'PF';
+
       bom.partition.push({
-        sku: `3P${partitionDepthCode}-FRP-BCL`,
-        description: `FRP Partition P${partitionDepthCode}-BCL - Tier ${tier} Corner Left`,
-        quantity: partitionCount,
+        sku: `3${panelPrefix}${tierDepthCode}-FRP-A`,
+        description: `FRP Partition ${panelPrefix}${tierDepthCode}-A - Tier ${tier}`,
+        quantity: partitionSpan * partitionCount,
         unitPrice: 0
       });
-
-      bom.partition.push({
-        sku: `3P${partitionDepthCode}-FRP-BCR`,
-        description: `FRP Partition P${partitionDepthCode}-BCR - Tier ${tier} Corner Right`,
-        quantity: partitionCount,
-        unitPrice: 0
-      });
-
-      // Partition main panels (only if partitionSpan > 2)
-      const mainPartitionCount = Math.max(0, partitionSpan - 2) * partitionCount;
-      if (mainPartitionCount > 0) {
-        bom.partition.push({
-          sku: `3P${partitionDepthCode}-FRP`,
-          description: `FRP Partition P${partitionDepthCode} - Tier ${tier}`,
-          quantity: mainPartitionCount,
-          unitPrice: 0
-        });
-      }
     }
   }
 
@@ -1909,6 +1903,60 @@ export function calculateFRPBOM(inputs) {
     ...structuralResult.bendAngles
   ];
   bom.roofSupport = structuralResult.roofSupport;
+
+  // ===========================
+  // FOAM TAPE & SEALANT (FRP-specific SKUs)
+  // ===========================
+
+  // FRP Panel Foam Tape: PF0000013 — Foam Tape 50 x 5t
+  const frpBaseJoints = lengthPanels * (widthPanels - 1) + (lengthPanels - 1) * widthPanels;
+  const frpWallVJoints = perimeter * fullTiers;
+  const frpWallHJoints = perimeter * Math.max(0, fullTiers - 1);
+  const frpConnectionJoints = perimeter; // base-to-wall
+  let frpPartJoints = 0;
+  if (partitionCount > 0) {
+    frpPartJoints = (partitionSpan - 1) * fullTiers * partitionCount
+      + partitionSpan * Math.max(0, fullTiers - 1) * partitionCount
+      + 2 * fullTiers * partitionCount
+      + partitionSpan * partitionCount;
+  }
+  const frpPanelJointMeters = (frpBaseJoints + frpWallVJoints + frpWallHJoints + frpConnectionJoints + frpPartJoints) * 1.0;
+
+  bom.accessories.push({
+    sku: 'PF0000013',
+    description: 'Foam Tape 50 x 5t (Panel)',
+    quantity: Math.ceil(frpPanelJointMeters * 1.32),
+    unitPrice: 0
+  });
+
+  // FRP Cover Tape: PF0000011 — Foam Tape 30 x 3t (roof joints only)
+  const frpRoofJoints = lengthPanels * (widthPanels - 1) + (lengthPanels - 1) * widthPanels;
+  bom.accessories.push({
+    sku: 'PF0000011',
+    description: 'Foam Tape 30 x 3t (Cover)',
+    quantity: Math.ceil(frpRoofJoints * 1.0 * 1.32),
+    unitPrice: 0
+  });
+
+  // FRP Corner Tape: PF0000014-10M — 4 corners × tank height + 10% buffer
+  bom.accessories.push({
+    sku: 'PF0000014-10M',
+    description: 'Foam Tape 125 x 5t (Corner)',
+    quantity: Math.ceil(4 * height * 1.1),
+    unitPrice: 0
+  });
+
+  // FRP Butyl Sealant: WS00006 (different from the existing SEALANT-PVC-FOAM entry)
+  const frpBaseIntersections = (lengthPanels - 1) * (widthPanels - 1);
+  const frpWallIntersections = perimeter * Math.max(0, fullTiers - 1);
+  const frpBaseWallIntersections = perimeter;
+  const frpSealantQty = Math.ceil((frpBaseIntersections + frpWallIntersections + frpBaseWallIntersections) * 1.045);
+  bom.accessories.push({
+    sku: 'WS00006',
+    description: 'Butyl Sealant',
+    quantity: frpSealantQty,
+    unitPrice: 0
+  });
 
   // ===========================
   // CALCULATE TOTALS
@@ -2677,6 +2725,54 @@ export function calculateSteelBOM(inputs) {
   const stayResult = calculateStays(inputs);
   bom.stays = stayResult.stays;
   bom.cleats = stayResult.cleats;
+
+  // ===========================
+  // SEALANT & FOAM TAPE
+  // ===========================
+
+  // Foam tape between panel joints. Formula: total joint meters × 1.32 (1.2 waste + 10% buffer)
+  // Validated against 12 engineering drawing BOMs
+  const panelEdge = panelType === 'm' ? 1.0 : 1.22;
+  const baseJoints = lengthPanels * (widthPanels - 1) + (lengthPanels - 1) * widthPanels;
+  const wallVJoints = perimeter * heightPanels;
+  const wallHJoints = perimeter * Math.max(0, heightPanels - 1);
+  const connectionJoints = perimeter * 2; // base-to-wall + wall-to-roof
+  const roofJoints = lengthPanels * (widthPanels - 1) + (lengthPanels - 1) * widthPanels;
+  let sealPartJoints = 0;
+  if (partitionCount > 0) {
+    sealPartJoints = (partitionSpan - 1) * heightPanels * partitionCount
+      + partitionSpan * Math.max(0, heightPanels - 1) * partitionCount
+      + 2 * heightPanels * partitionCount
+      + partitionSpan * partitionCount;
+  }
+  const totalJointMeters = (baseJoints + wallVJoints + wallHJoints + connectionJoints + roofJoints + sealPartJoints) * panelEdge;
+
+  bom.accessories.push({
+    sku: 'PF0000010',
+    description: 'PVC Foam Tape 4.8mm x 45W (Panel)',
+    quantity: Math.ceil(totalJointMeters * 1.32),
+    unitPrice: 0
+  });
+
+  // Sealant gum at joint intersections (+ points where 4 panels meet)
+  // Formula: total intersections × 1.045 (0.95 factor + 10% buffer)
+  const baseIntersections = (lengthPanels - 1) * (widthPanels - 1);
+  const wallIntersections = perimeter * Math.max(0, heightPanels - 1);
+  const baseWallIntersections = perimeter;
+  const roofIntersections = (lengthPanels - 1) * (widthPanels - 1);
+  let sealPartIntersections = 0;
+  if (partitionCount > 0) {
+    sealPartIntersections = (partitionSpan - 1) * Math.max(0, heightPanels - 1) * partitionCount
+      + partitionSpan * partitionCount;
+  }
+  const sealantGumQty = Math.ceil((baseIntersections + wallIntersections + baseWallIntersections + roofIntersections + sealPartIntersections) * 1.045);
+
+  bom.accessories.push({
+    sku: 'WS00002',
+    description: 'Sealant Gum (Butyl)',
+    quantity: sealantGumQty,
+    unitPrice: 0
+  });
 
   // ===========================
   // CALCULATE TOTALS
