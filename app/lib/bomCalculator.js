@@ -2269,51 +2269,90 @@ export function calculateSteelBOM(inputs) {
   // ===========================
 
   if (partitionCount > 0) {
-    // NOTE: Partition panels use ¢ (cent) symbol
-    // Partitions use Type 1 format even when tank is Type 2
-    // because Type 2 partition SKUs may not exist in database
+    if (isType2) {
+      // ============================================
+      // TYPE 2: Uses PA panels (Partition A)
+      // PA panels at bottom tier thickness only
+      // Upper tier partition positions use standard AB panels
+      // ============================================
 
-    thickness.tiers.forEach((tier, index) => {
-      const thicknessCode = getThicknessCode(tier.thickness);
-      const isBottom = (index === 0);
+      const bottomTier = thickness.tiers[0];
+      const bottomThicknessCode = getThicknessCode(bottomTier.thickness);
+      const bottomDiameter = getDiameterForTier(0);
 
-      if (isBottom) {
-        // Bottom tier: ALL panels are partition-specific (C¢ corners + B¢ main)
-        bom.partition.push({
-          sku: `1C¢${thicknessCode}-${panelType}-${materialCode}`,
-          description: `Partition Corner - Tier ${tier.height} - ${tier.thickness}mm`,
-          quantity: 2 * partitionCount,
-          unitPrice: 0
-        });
+      // PA panels = span × partitions (at bottom tier thickness)
+      // PA SKU uses generateSteelSKU so diameter is handled correctly
+      bom.partition.push({
+        sku: generateSteelSKU(typePrefix, 'PA', bottomTier.thickness, panelType, materialCode, bottomDiameter),
+        description: `Partition Panel PA - ${bottomTier.thickness}mm`,
+        quantity: partitionSpan * partitionCount,
+        unitPrice: 0
+      });
 
-        const mainPartitionPanels = Math.max(1, partitionSpan - 2);
-        bom.partition.push({
-          sku: `1B¢${thicknessCode}-${panelType}-${materialCode}`,
-          description: `Partition Wall - Tier ${tier.height} - ${tier.thickness}mm`,
-          quantity: mainPartitionPanels * partitionCount,
-          unitPrice: 0
-        });
-      } else {
-        // Upper tiers: B¢ at edges only (2 per partition) + standard A panels in middle
-        bom.partition.push({
-          sku: `1B¢${thicknessCode}-${panelType}-${materialCode}`,
-          description: `Partition Wall - Tier ${tier.height} - ${tier.thickness}mm`,
-          quantity: 2 * partitionCount,
-          unitPrice: 0
-        });
+      // Upper tier partition uses standard AB panels
+      thickness.tiers.forEach((tier, index) => {
+        if (index > 0) {
+          const tierDiameter = getDiameterForTier(index);
+          const middlePanels = Math.max(0, partitionSpan - 2);
+          if (middlePanels > 0) {
+            bom.partition.push({
+              sku: generateSteelSKU(typePrefix, 'AB', tier.thickness, panelType, materialCode, tierDiameter),
+              description: `Partition Middle AB - Tier ${tier.height} - ${tier.thickness}mm`,
+              quantity: middlePanels * partitionCount,
+              unitPrice: 0
+            });
+          }
+        }
+      });
 
-        // Middle partition panels use standard A-type panels
-        const middlePartitionPanels = Math.max(0, partitionSpan - 2);
-        if (middlePartitionPanels > 0) {
+    } else {
+      // ============================================
+      // TYPE 1: Uses B¢/C¢ panels
+      // Bottom tier: C¢ (corners) + B¢ (main)
+      // Upper tiers: B¢ (edges only) + standard A (middle)
+      // ============================================
+
+      thickness.tiers.forEach((tier, index) => {
+        const thicknessCode = getThicknessCode(tier.thickness);
+        const isBottom = (index === 0);
+
+        if (isBottom) {
+          // Bottom tier: ALL panels are partition-specific
           bom.partition.push({
-            sku: `1A${thicknessCode}-${panelType}-${materialCode}`,
-            description: `Partition Middle - Tier ${tier.height} - ${tier.thickness}mm`,
-            quantity: middlePartitionPanels * partitionCount,
+            sku: `1C¢${thicknessCode}-${panelType}-${materialCode}`,
+            description: `Partition Corner - Tier ${tier.height} - ${tier.thickness}mm`,
+            quantity: 2 * partitionCount,
             unitPrice: 0
           });
+
+          const mainPartitionPanels = Math.max(1, partitionSpan - 2);
+          bom.partition.push({
+            sku: `1B¢${thicknessCode}-${panelType}-${materialCode}`,
+            description: `Partition Wall - Tier ${tier.height} - ${tier.thickness}mm`,
+            quantity: mainPartitionPanels * partitionCount,
+            unitPrice: 0
+          });
+        } else {
+          // Upper tiers: B¢ at edges + standard A in middle
+          bom.partition.push({
+            sku: `1B¢${thicknessCode}-${panelType}-${materialCode}`,
+            description: `Partition Wall - Tier ${tier.height} - ${tier.thickness}mm`,
+            quantity: 2 * partitionCount,
+            unitPrice: 0
+          });
+
+          const middlePartitionPanels = Math.max(0, partitionSpan - 2);
+          if (middlePartitionPanels > 0) {
+            bom.partition.push({
+              sku: `1A${thicknessCode}-${panelType}-${materialCode}`,
+              description: `Partition Middle - Tier ${tier.height} - ${tier.thickness}mm`,
+              quantity: middlePartitionPanels * partitionCount,
+              unitPrice: 0
+            });
+          }
         }
-      }
-    });
+      });
+    }
   }
 
   // ===========================
