@@ -2289,6 +2289,16 @@ export function calculateSteelBOM(inputs) {
         unitPrice: 0
       });
 
+      // TBAB panels (partition wall at stay junction positions)
+      // Total TBAB = span × partitions (validated against 7 engineering drawings)
+      // Height code breakdown (1H/2H/std) varies by geometry but total is consistent
+      bom.partition.push({
+        sku: generateSteelSKU(typePrefix, 'TBAB', bottomTier.thickness, panelType, materialCode, getDiameterForTier(0)),
+        description: `Partition Stay Panel TBAB - ${bottomTier.thickness}mm`,
+        quantity: partitionSpan * partitionCount,
+        unitPrice: 0
+      });
+
       // Upper tier partition uses standard AB panels
       thickness.tiers.forEach((tier, index) => {
         if (index > 0) {
