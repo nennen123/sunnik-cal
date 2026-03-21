@@ -1884,9 +1884,10 @@ export function calculateFRPBOM(inputs) {
   bom.hardware = tieRodResult.hardware;
   bom.stayPlates = tieRodResult.stayPlates;
 
-  // Add partition components to partition array
+  // Add partition hardware components to hardware array (NOT partition)
+  // These are end fixes, brackets, and stay plates — not panels
   if (tieRodResult.partitionComponents.length > 0) {
-    bom.partition.push(...tieRodResult.partitionComponents);
+    bom.hardware.push(...tieRodResult.partitionComponents);
   }
 
   // ===========================
