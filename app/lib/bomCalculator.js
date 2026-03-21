@@ -2056,6 +2056,7 @@ export function calculateSteelBOM(inputs) {
     material = 'SS316', // 'SS316', 'SS304', 'HDG', 'MS'
     buildStandard = 'SANS', // 'SANS', 'BSI', 'LPCB'
     partitionCount = 0,
+    partitionDirection = 'width',
     roofThickness = 1.5,
     internalSupport = false,
     externalSupport = false,
@@ -2083,8 +2084,8 @@ export function calculateSteelBOM(inputs) {
   const heightPanels = Math.ceil(height / panelSize);
   const perimeter = 2 * (lengthPanels + widthPanels);
 
-  // Determine which side is shorter (for partition orientation)
-  const partitionSpan = Math.min(lengthPanels, widthPanels);
+  // Determine partition span based on user's direction choice
+  const partitionSpan = partitionDirection === 'length' ? lengthPanels : widthPanels;
 
   // Get thickness specification based on build standard and material
   const thickness = getThicknessByHeight(height, panelType, buildStandard, material);
