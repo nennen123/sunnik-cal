@@ -1385,6 +1385,7 @@ export function calculateFRPBOM(inputs) {
     height,
     buildStandard = 'MS1390',
     partitionCount = 0,
+    partitionDirection = 'width',
     internalSupport = false,
     externalSupport = false,
     wliMaterial = 'None',
@@ -1409,8 +1410,8 @@ export function calculateFRPBOM(inputs) {
   const depthCode = getFRPDepthCode(height);
   const { fullTiers, hasHalfTier } = getFRPTiers(height);
 
-  // Determine partition span (shorter side)
-  const partitionSpan = Math.min(lengthPanels, widthPanels);
+  // Determine partition span based on user's direction choice
+  const partitionSpan = partitionDirection === 'length' ? lengthPanels : widthPanels;
 
   // Get build standard specific components
   const buildComponents = getFRPBuildStandardComponents(buildStandard);
