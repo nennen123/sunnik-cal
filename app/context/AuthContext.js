@@ -31,10 +31,17 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     // Check active session on mount
     const getSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        await fetchAndSetProfile(session.user.id);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        setUser(session?.user ?? null);
+        if (session?.user) {
+          await fetchAndSetProfile(session.user.id);
+        }
+      } catch (error) {
+        console.warn('⚠️ Auth session expired or invalid, signing out:', error.message);
+        setUser(null);
+        clearProfile();
+        await supabase.auth.signOut().catch(() => {});
       }
       setLoading(false);
     };
@@ -44,10 +51,16 @@ export function AuthProvider({ children }) {
     // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          await fetchAndSetProfile(session.user.id);
-        } else {
+        try {
+          setUser(session?.user ?? null);
+          if (session?.user) {
+            await fetchAndSetProfile(session.user.id);
+          } else {
+            clearProfile();
+          }
+        } catch (error) {
+          console.warn('⚠️ Auth state change error, clearing session:', error.message);
+          setUser(null);
           clearProfile();
         }
         setLoading(false);
