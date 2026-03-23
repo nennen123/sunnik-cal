@@ -5,7 +5,7 @@
 // Updated: Added dimensionMode state for panel count vs meter input toggle
 // Preserved: Phase 2 functionality (partitionPositions, stays/cleats, Supabase pricing)
 
-import { useState, useEffect, useRef, Suspense } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { calculateBOM } from '../lib/bomCalculator';
 import { loadPrices, getPrice, getCacheStatus } from '../lib/supabasePriceLoader';
@@ -63,30 +63,15 @@ function CalculatorContent() {
   const [error, setError] = useState(null);
 
   // Auto-set WLI & ladder quantities when partitions change
-  const prevPartitionCount = useRef(inputs.partitionCount);
-
   useEffect(() => {
-    if (inputs.partitionCount > 0 && prevPartitionCount.current === 0) {
-      // User just added partitions — auto-set quantities
-      const sections = inputs.partitionCount + 1;
-      setInputs(prev => ({
-        ...prev,
-        wliQty: sections,
-        wliMaterial: prev.wliMaterial === 'None' ? prev.material : prev.wliMaterial,
-        internalLadderQty: sections,
-        externalLadderQty: sections,
-      }));
-    } else if (inputs.partitionCount > 0 && inputs.partitionCount !== prevPartitionCount.current) {
-      // User changed partition count (but already had partitions) — update quantities
-      const sections = inputs.partitionCount + 1;
-      setInputs(prev => ({
-        ...prev,
-        wliQty: sections,
-        internalLadderQty: sections,
-        externalLadderQty: sections,
-      }));
-    }
-    prevPartitionCount.current = inputs.partitionCount;
+    const sections = inputs.partitionCount + 1;
+    setInputs(prev => ({
+      ...prev,
+      wliQty: sections,
+      wliMaterial: prev.wliMaterial === 'None' ? prev.material : prev.wliMaterial,
+      internalLadderQty: sections,
+      externalLadderQty: sections,
+    }));
   }, [inputs.partitionCount]);
 
   // Load prices from Supabase on component mount
