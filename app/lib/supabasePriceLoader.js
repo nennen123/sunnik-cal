@@ -96,7 +96,7 @@ export async function loadPrices() {
     const testSkus = ['3B30-FRP', '3S30-FRP', '3S30-FRP-A', '3S30-FRP-B', '3F00-FRP', '3H00-FRP'];
     testSkus.forEach(sku => {
       const price = prices[sku];
-      console.log(`   ${sku}: ${price ? `RM ${price.toFixed(2)}` : 'NOT FOUND'}`);
+      console.log(`   ${sku}: ${price ? `RM ${_extractPrice(price).toFixed(2)}` : 'NOT FOUND'}`);
     });
 
     return prices;
