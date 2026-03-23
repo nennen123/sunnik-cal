@@ -23,7 +23,7 @@ function CalculatorContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [editingQuote, setEditingQuote] = useState(null);
-  const [markupPercentage, setMarkupPercentage] = useState(20);
+  const [markupPercentage, setMarkupPercentage] = useState(30);
   const [inputs, setInputs] = useState({
     length: 5,
     width: 4,
