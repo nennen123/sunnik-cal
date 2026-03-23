@@ -440,7 +440,9 @@ function CalculatorContent() {
                   inputs={inputs}
                   markupPercentage={markupPercentage}
                   setMarkupPercentage={setMarkupPercentage}
-                  finalPrice={bom.summary.totalCost * (1 + markupPercentage / 100)}
+                  rawBomCost={bom.summary.totalCost}
+                  operationMultiplier={1.20}
+                  finalPrice={bom.summary.totalCost * 1.20 * (1 + markupPercentage / 100)}
                   role={role}
                   editingQuote={editingQuote}
                   showUSD={showUSD}

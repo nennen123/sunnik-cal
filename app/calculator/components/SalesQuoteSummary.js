@@ -9,7 +9,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { saveQuote, saveRevision, getBaseSerialNumber, detectChanges } from '../../lib/quoteService';
 
-export default function SalesQuoteSummary({ bom, inputs, markupPercentage, setMarkupPercentage, finalPrice, role = 'sales', editingQuote = null, showUSD, setShowUSD, usdRate, setUsdRate }) {
+export default function SalesQuoteSummary({ bom, inputs, markupPercentage, setMarkupPercentage, rawBomCost = 0, operationMultiplier = 1.20, finalPrice, role = 'sales', editingQuote = null, showUSD, setShowUSD, usdRate, setUsdRate }) {
   const { user } = useAuth();
   const [isExporting, setIsExporting] = useState(false);
   const [exportError, setExportError] = useState(null);
@@ -50,8 +50,8 @@ export default function SalesQuoteSummary({ bom, inputs, markupPercentage, setMa
   const effectiveVolume = actualLength * actualWidth * (actualHeight - (inputs.freeboard || 0.2));
   const effectiveVolumeLiters = effectiveVolume * 1000;
 
-  // Base price (before markup)
-  const basePrice = bom.summary?.totalCost || 0;
+  // Base price (before markup) — includes operation cost
+  const basePrice = rawBomCost * operationMultiplier;
 
   // Derived pricing: finalPrice prop = subtotal after markup
   const subtotalAfterMarkup = finalPrice;
@@ -627,6 +627,27 @@ export default function SalesQuoteSummary({ bom, inputs, markupPercentage, setMa
             </div>
           )}
         </div>
+
+        {/* Super Admin: Operation Cost Breakdown */}
+        {role === 'super_admin' && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+            <div className="text-xs font-semibold text-red-600 uppercase tracking-wide mb-2">
+              Super Admin View — Operation Cost
+            </div>
+            <div className="flex justify-between text-sm text-red-700">
+              <span>Raw BOM Cost</span>
+              <span>{currencySymbol} {formatPrice(rawBomCost)}</span>
+            </div>
+            <div className="flex justify-between text-sm text-red-700">
+              <span>Operation Cost (20%)</span>
+              <span>{currencySymbol} {formatPrice(rawBomCost * 0.20)}</span>
+            </div>
+            <div className="flex justify-between text-sm font-bold text-red-800 border-t border-red-300 pt-1 mt-1">
+              <span>Base Cost (incl. operation)</span>
+              <span>{currencySymbol} {formatPrice(rawBomCost * operationMultiplier)}</span>
+            </div>
+          </div>
+        )}
 
         {/* Price Breakdown */}
         <div className="mb-4 space-y-2">
