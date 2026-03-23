@@ -262,7 +262,8 @@ export default function SalesQuoteSummary({ bom, inputs, markupPercentage, setMa
         await generateSalesPDF(
           bom, inputs, markupPercentage, grandTotal, serialNumber,
           customerCompany.trim(), tankLocation.trim(),
-          commissionAmount, validCustomItems, subtotalAfterMarkup
+          commissionAmount, validCustomItems, subtotalAfterMarkup,
+          currencySymbol, isUSD ? usdRate : null
         );
       }
 

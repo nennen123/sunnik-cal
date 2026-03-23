@@ -435,9 +435,14 @@ function getBuildStandardName(code) {
  * Includes panel summary, accessories, pipe fittings - NO SKU codes or itemized prices
  * Version: 3.0.0 - Added serial number, customer info
  */
-export async function generateSalesPDF(bom, inputs, markupPercentage, finalPrice, serialNumber, customerCompany, tankLocation, commissionAmount = 0, customItems = [], subtotalAfterMarkup = null) {
+export async function generateSalesPDF(bom, inputs, markupPercentage, finalPrice, serialNumber, customerCompany, tankLocation, commissionAmount = 0, customItems = [], subtotalAfterMarkup = null, currencySymbol = 'RM', usdRate = null) {
   const { jsPDF } = await import('jspdf');
   const autoTable = (await import('jspdf-autotable')).default;
+
+  // Currency conversion helper
+  const isUSD = currencySymbol === 'USD' && usdRate && parseFloat(usdRate) > 0;
+  const convertPrice = (rm) => isUSD ? rm / parseFloat(usdRate) : rm;
+  const formatCurrency = (amount) => `${currencySymbol} ${convertPrice(amount).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   const doc = new jsPDF();
 
@@ -770,7 +775,7 @@ export async function generateSalesPDF(bom, inputs, markupPercentage, finalPrice
       if (item.description && item.price) {
         doc.text(`•  ${item.description}`, margin + 8, yPosition + 5);
         doc.text(
-          `RM ${Number(item.price).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          formatCurrency(Number(item.price)),
           pageWidth - margin - 5, yPosition + 5, { align: 'right' }
         );
         yPosition += 7;
@@ -798,8 +803,14 @@ export async function generateSalesPDF(bom, inputs, markupPercentage, finalPrice
 
   doc.setFontSize(20);
   doc.setFont('helvetica', 'bold');
-  const priceText = `RM ${finalPrice.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const priceText = formatCurrency(finalPrice);
   doc.text(priceText, pageWidth - margin - 10, yPosition + 20, { align: 'right' });
+
+  if (isUSD) {
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Exchange rate: 1 USD = ${usdRate} MYR`, pageWidth - margin - 10, yPosition + 27, { align: 'right' });
+  }
 
   yPosition += 42;
 
