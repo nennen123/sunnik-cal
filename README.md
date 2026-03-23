@@ -4,7 +4,7 @@ Professional Bill of Materials (BOM) and quotation system for modular water tank
 
 ## Features
 
-- **Tank Configuration**: Calculate BOM for tanks with custom dimensions (length, width, height)
+- **Tank Configuration**: Calculate for tanks with custom dimensions (length, width, height)
 - **Multiple Materials**: Support for SS316, SS304, HDG, MS, and FRP panels
 - **Real-time Pricing**: Live pricing from Supabase database (8,247+ SKUs)
 - **Panel Types**: Metric (1M x 1M) and Imperial (4' x 4') panel sizes

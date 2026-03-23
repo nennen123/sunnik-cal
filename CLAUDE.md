@@ -1,7 +1,7 @@
 # CLAUDE.md — Sunnik Tank Calculator
 
 > **Last Updated:** March 17, 2026
-> **Version:** 2.3.1 (deployed)
+> **Version:** 2.4.0 (deployed)
 > **Owner:** Non-coder building with AI assistance. Accuracy over speed, always.
 
 ---
@@ -148,17 +148,14 @@ Thicker panels at the bottom (more water pressure), thinner at the top:
 | 3m | 4.5mm | 4.5mm | 3.0mm | 3.0mm | — |
 | 4m | 5.0mm | 5.0mm | 4.5mm | 3.0mm | 3.0mm |
 
-### Partition Wall Panels
-Total partition wall panels = **span × tiers × partitions** (both types).
+### Partition Panel System
+Total partition panels = span × tiers × partitions (all types).
 
-**Type 1 partition (B¢/C¢):**
-- Bottom tier: C¢ corners (qty = 2 × P) + B¢ main (qty = max(1, span-2) × P)
-- Upper tiers: B¢ edges only (qty = 2 × P) + standard A panels in middle (qty = max(0, span-2) × P)
+**Type 1 Steel:** Uses Cφ (corners, bottom tier only, qty=2×P) and Bφ (edges). Upper tier middles use standard A panels.
 
-**Type 2 partition (PA):**
-- Bottom tier: PA panels (qty = span × P, at bottom tier thickness)
-- Upper tiers: AB panels for middle positions (qty = max(0, span-2) × P per tier)
-- TBAB panels are handled by the stay system, not the partition wall section
+**Type 2 Steel:** Uses PA panels (qty=span×P, bottom tier thickness) and TBAB stay junction panels (qty=span×P). Upper tier middles use AB panels. Note: PA SKUs include diameter code even for HDG.
+
+**FRP:** Uses P panels (0.93M, edge tiers) and PF panels (1M full, middle tiers) with tier-specific depth codes counting down from bottom (e.g., P30, PF20, P10 for a 3-tier tank).
 
 ---
 
@@ -189,6 +186,11 @@ Example: 2PA6-m-18-HDG  → Type 2, Partition A, 6mm, Metric, Ø18, HDG
 
 Note: PA panels always use bottom tier thickness. Ø18 at bottom tier, Ø14 at upper tiers.
 Upper tier partition middles use standard AB panels (not PA).
+
+TBAB (Partition Stay Junction):
+Format: 2TBAB[Thickness]-[Size]-[Diameter]-[Material]
+Example: 2TBAB45-m-18-HDG → Type 2, TBAB, 4.5mm, Metric, Ø18, HDG
+Note: Total qty = span × partitions. Height code breakdown (1H/2H/std) not yet implemented.
 ```
 
 ### FRP
@@ -198,7 +200,12 @@ Example: 3B20-FRP      → Base panel, 2m depth
          3S30-FRP-B    → Sidewall, 3m depth, Type B (structural)
          3S30-FRP-A    → Sidewall, 3m depth, Type A (standard)
          3R00-FRP      → Roof panel
-         3P10-FRP      → Partition panel, 1m
+
+FRP Partition:
+  3P[DepthCode]-FRP-A   → P panel (0.93M, edge tiers — bottom & top)
+  3PF[DepthCode]-FRP-A  → PF panel (1M full, middle tiers)
+  Depth codes count down: bottom=totalTiers×10, top=10
+  Example (3-tier): 3P30-FRP-A, 3PF20-FRP-A, 3P10-FRP-A
 ```
 
 ### Thickness Code Convention
@@ -317,7 +324,7 @@ Uses jsPDF library. Each BOM section is rendered as a table.
 
 ---
 
-## What's Validated & Working (v2.3.0)
+## What's Validated & Working (v2.4.0)
 
 | Feature | Version | Validated Against |
 |---------|---------|-------------------|
@@ -330,6 +337,10 @@ Uses jsPDF library. Each BOM section is rendered as a table.
 | FRP tie rod system | v2.1.0 | 100% match to drawings |
 | Supabase price loading | v1.0 | 11,578 SKUs |
 | PDF generation | v1.3.0 | Manual review |
+| Type 1 partition wall | v2.4.0 | 4 real engineering drawings |
+| Type 2 partition (PA + TBAB) | v2.4.0 | 7 real engineering drawings |
+| FRP partition (P/PF panels) | v2.4.0 | 1 real engineering drawing |
+| Sealant & foam tape | v2.4.0 | 12 real engineering drawings |
 
 ---
 
@@ -339,6 +350,10 @@ Uses jsPDF library. Each BOM section is rendered as a table.
 - Some accessory SKUs use placeholder prices (IL, EL, SafetyCage for rare sizes)
 - Partition calculations for more than 2 partitions may need additional validation
 - FRP external brace BOM is simplified (not fully validated)
+- Foam tape and sealant gum quantities are estimated with 10% buffer (within 5-8% of real drawings)
+- TBAB height code breakdown (1H/2H/std) not implemented — only total quantity
+- BOP/CDL/CDR panels not implemented (found in only 1 of 13 drawings — likely special case)
+- FRP patch tape (PF0000012) not yet implemented
 
 ---
 
@@ -346,8 +361,8 @@ Uses jsPDF library. Each BOM section is rendered as a table.
 
 1. **Engineering Drawing Generator** — SVG panel & stay arrangement diagrams
 2. **Odd-Shape Tank Calculator** — L-shape, U-shape, column cutout tanks using grid-based input
-3. **TBAB partition panels** — tied to Type 2 stay system, 8 drawings available for validation
-4. **FRP partition panels** — PF/P with tier-specific depth codes, 1 drawing available for validation
+3. ~~**TBAB partition panels**~~ — ✅ Implemented in v2.4.0 (total qty only, height code breakdown pending)
+4. ~~**FRP partition panels**~~ — ✅ Implemented in v2.4.0 (P/PF with tier-specific depth codes)
 5. See `PHASE2_DEVELOPMENT_PLAN.md` in documentation folder for full spec
 
 ---
