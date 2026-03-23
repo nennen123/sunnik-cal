@@ -687,9 +687,12 @@ export default function TankInputs({ inputs, setInputs }) {
         <select
           value={inputs.roofThickness}
           onChange={(e) => handleChange('roofThickness', parseFloat(e.target.value))}
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+          disabled={inputs.material === 'FRP'}
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-400"
         >
-          {inputs.material === 'SS316' || inputs.material === 'SS304' ? (
+          {inputs.material === 'FRP' ? (
+            <option value="1.5">N/A (FRP standard roof)</option>
+          ) : inputs.material === 'SS316' || inputs.material === 'SS304' ? (
             inputs.panelType === 'm' ? (
               <>
                 <option value="1.0">1.0mm (Standard - SS Metric)</option>
