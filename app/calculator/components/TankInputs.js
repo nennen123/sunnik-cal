@@ -34,6 +34,7 @@ export default function TankInputs({ inputs, setInputs }) {
         wliMaterial: accessoryMat,
         internalLadderMaterial: accessoryMat,
         externalLadderMaterial: accessoryMat,
+        manholeMaterial: accessoryMat,
         bnwMaterial: accessoryMat,
         pipeFittings: (prev.pipeFittings || []).map(pf => ({
           ...pf,
@@ -957,6 +958,50 @@ export default function TankInputs({ inputs, setInputs }) {
                 value={inputs.externalLadderMaterial || 'HDG'}
                 onChange={(e) => handleChange('externalLadderMaterial', e.target.value)}
                 disabled={!inputs.externalLadderQty || inputs.externalLadderQty === 0}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+              >
+                <option value="HDG">HDG</option>
+                <option value="MS">MS</option>
+                <option value="SS316">SS316</option>
+                <option value="SS304">SS304</option>
+                <option value="FRP">FRP</option>
+                <option value="Aluminium">Aluminium</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Manhole */}
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Manhole Cover
+          </label>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs text-gray-600 mb-1">
+                Quantity
+              </label>
+              <select
+                value={inputs.manholeQty || 0}
+                onChange={(e) => handleChange('manholeQty', parseInt(e.target.value))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value={0}>0 (None)</option>
+                <option value={1}>1</option>
+                <option value={2}>2</option>
+                <option value={3}>3</option>
+                <option value={4}>4</option>
+                <option value={5}>5</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-gray-600 mb-1">
+                Material
+              </label>
+              <select
+                value={inputs.manholeMaterial || 'HDG'}
+                onChange={(e) => handleChange('manholeMaterial', e.target.value)}
+                disabled={!inputs.manholeQty || inputs.manholeQty === 0}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
               >
                 <option value="HDG">HDG</option>

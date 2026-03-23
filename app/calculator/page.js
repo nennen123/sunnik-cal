@@ -49,6 +49,8 @@ function CalculatorContent() {
     internalLadderMaterial: 'HDG',
     externalLadderQty: 1,
     externalLadderMaterial: 'HDG',
+    manholeQty: 1,
+    manholeMaterial: 'HDG',
     safetyCage: true,
     bnwMaterial: 'HDG',
     pipeFittings: []  // Array of pipe fitting configurations
@@ -73,6 +75,7 @@ function CalculatorContent() {
       wliMaterial: prev.wliMaterial === 'None' ? prev.material : prev.wliMaterial,
       internalLadderQty: sections,
       externalLadderQty: sections,
+      manholeQty: sections,
     }));
   }, [inputs.partitionCount]);
 
@@ -305,6 +308,8 @@ function CalculatorContent() {
       internalLadderMaterial: 'HDG',
       externalLadderQty: 1,
       externalLadderMaterial: 'HDG',
+      manholeQty: 1,
+      manholeMaterial: 'HDG',
       safetyCage: true,
       bnwMaterial: 'HDG',
       pipeFittings: []

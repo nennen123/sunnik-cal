@@ -1394,6 +1394,7 @@ export function calculateFRPBOM(inputs) {
     internalLadderMaterial = 'HDG',
     externalLadderQty = 0,
     externalLadderMaterial = 'HDG',
+    manholeQty = 1,
     safetyCage = false,
     pipeFittings = [] // Array of pipe fitting configurations
   } = inputs;
@@ -1663,10 +1664,9 @@ export function calculateFRPBOM(inputs) {
   const roofCount = lengthPanels * widthPanels;
 
   // Small tank roof handling for FRP
+  const effectiveManholeQty = Math.min(manholeQty, roofCount); // can't have more manholes than roof panels
   if (tankSizeCategory === 'tiny' || tankSizeCategory === 'small') {
-    // Small tanks: minimal roof panels with 1 manhole
-    const manholeCount = roofCount <= 2 ? 1 : Math.min(2, roofCount - 1);
-    const mainRoofPanels = Math.max(0, roofCount - manholeCount);
+    const mainRoofPanels = Math.max(0, roofCount - effectiveManholeQty);
 
     if (mainRoofPanels > 0) {
       bom.roof.push({
@@ -1678,29 +1678,33 @@ export function calculateFRPBOM(inputs) {
     }
 
     // Manholes
-    bom.roof.push({
-      sku: `3MH-FRP`,
-      description: `FRP Manhole`,
-      quantity: manholeCount,
-      unitPrice: 0
-    });
+    if (effectiveManholeQty > 0) {
+      bom.roof.push({
+        sku: `3MH-FRP`,
+        description: `FRP Manhole`,
+        quantity: effectiveManholeQty,
+        unitPrice: 0
+      });
+    }
   } else {
-    // Normal tanks (3×3+): Original logic
-    // Main roof panels
+    // Normal tanks (3×3+)
+    const mainRoofPanels = Math.max(0, roofCount - effectiveManholeQty);
     bom.roof.push({
       sku: `3R00-FRP`,
       description: `FRP Roof Panel R00`,
-      quantity: roofCount - 2, // minus manholes
+      quantity: mainRoofPanels,
       unitPrice: 0
     });
 
-    // Manholes (standard 2 per tank)
-    bom.roof.push({
-      sku: `3MH-FRP`,
-      description: `FRP Manhole`,
-      quantity: 2,
-      unitPrice: 0
-    });
+    // Manholes
+    if (effectiveManholeQty > 0) {
+      bom.roof.push({
+        sku: `3MH-FRP`,
+        description: `FRP Manhole`,
+        quantity: effectiveManholeQty,
+        unitPrice: 0
+      });
+    }
   }
 
   // ===========================
@@ -2068,6 +2072,7 @@ export function calculateSteelBOM(inputs) {
     internalLadderMaterial = 'HDG',
     externalLadderQty = 0,
     externalLadderMaterial = 'HDG',
+    manholeQty = 1,
     safetyCage = false,
     bnwMaterial = 'HDG',
     pipeFittings = [] // Array of pipe fitting configurations
@@ -2428,12 +2433,9 @@ export function calculateSteelBOM(inputs) {
   const roofThicknessCode = getThicknessCode(roofThickness);
 
   // Small tank roof handling
+  const effectiveManholeQty = Math.min(manholeQty, roofCount);
   if (tankSizeCategory === 'tiny' || tankSizeCategory === 'small') {
-    // Small tanks: roof = base area (L×W panels)
-    // Just use standard roof panels + 1 manhole
-    // Total roof panels = roofCount (all standard, 1 is a manhole)
-    const manholeQty = 1; // Always 1 manhole for small tanks
-    const mainRoofPanels = Math.max(0, roofCount - manholeQty);
+    const mainRoofPanels = Math.max(0, roofCount - effectiveManholeQty);
 
     if (mainRoofPanels > 0) {
       bom.roof.push({
@@ -2444,19 +2446,22 @@ export function calculateSteelBOM(inputs) {
       });
     }
 
-    // Manhole (always 1 for small tanks)
-    bom.roof.push({
-      sku: `1MH${roofThicknessCode}-${panelType}-${materialCode}`,
-      description: `Manhole - ${roofThickness}mm`,
-      quantity: manholeQty,
-      unitPrice: 0
-    });
+    // Manhole
+    if (effectiveManholeQty > 0) {
+      bom.roof.push({
+        sku: `1MH${roofThicknessCode}-${panelType}-${materialCode}`,
+        description: `Manhole - ${roofThickness}mm`,
+        quantity: effectiveManholeQty,
+        unitPrice: 0
+      });
+    }
   } else {
-    // Normal tanks (3×3+): Original logic
+    // Normal tanks (3×3+)
+    const specialPanels = 2 + effectiveManholeQty; // 2 air vents + manholes
     bom.roof.push({
       sku: `1R${roofThicknessCode}-${panelType}-${materialCode}`,
       description: `Roof Panel - ${roofThickness}mm`,
-      quantity: roofCount - 4, // Main panels minus special panels
+      quantity: Math.max(0, roofCount - specialPanels),
       unitPrice: 0
     });
 
@@ -2469,12 +2474,14 @@ export function calculateSteelBOM(inputs) {
     });
 
     // Manholes
-    bom.roof.push({
-      sku: `1MH${roofThicknessCode}-${panelType}-${materialCode}`,
-      description: `Manhole - ${roofThickness}mm`,
-      quantity: 2,
-      unitPrice: 0
-    });
+    if (effectiveManholeQty > 0) {
+      bom.roof.push({
+        sku: `1MH${roofThicknessCode}-${panelType}-${materialCode}`,
+        description: `Manhole - ${roofThickness}mm`,
+        quantity: effectiveManholeQty,
+        unitPrice: 0
+      });
+    }
   }
 
   // ===========================
