@@ -394,9 +394,12 @@ export default function SalesQuoteSummary({ bom, inputs, markupPercentage, setMa
               </div>
             )}
             <div className="flex justify-between py-2 border-b border-gray-100">
-              <span className="text-gray-600">Partitions</span>
-              <span className="font-semibold text-gray-900">
-                {inputs.partitionCount > 0 ? `${inputs.partitionCount} compartment${inputs.partitionCount > 1 ? 's' : ''}` : 'None'}
+              <span className="text-gray-600">No. of Partitions</span>
+              <span className="text-right">
+                <span className="font-semibold text-gray-900">{inputs.partitionCount}</span>
+                <span className="block text-xs text-gray-500">
+                  {inputs.partitionCount + 1} compartment{inputs.partitionCount + 1 > 1 ? 's' : ''}
+                </span>
               </span>
             </div>
             <div className="flex justify-between py-2 border-b border-gray-100">
