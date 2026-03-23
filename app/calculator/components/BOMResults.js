@@ -41,6 +41,7 @@ export default function BOMResults({ bom }) {
     if (!items || items.length === 0) return null;
 
     const sectionTotal = items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
+    const sectionWeight = items.reduce((sum, item) => sum + (item.totalWeight || 0), 0);
     const bgColor = sectionColors[colorKey] || 'bg-gray-50 border-gray-300';
     const headerColor = sectionColors[`${colorKey}Header`] || 'bg-gray-100 text-gray-800';
 
@@ -55,7 +56,7 @@ export default function BOMResults({ bom }) {
               key={index}
               className="grid grid-cols-12 gap-4 px-4 py-3 border-b border-gray-200 last:border-b-0 hover:bg-white/50 transition-colors"
             >
-              <div className="col-span-5">
+              <div className="col-span-4">
                 <div className="font-mono text-sm text-blue-600 font-medium">
                   {item.sku}
                 </div>
@@ -63,7 +64,7 @@ export default function BOMResults({ bom }) {
                   {item.description}
                 </div>
               </div>
-              <div className="col-span-2 text-right">
+              <div className="col-span-1 text-right">
                 <div className="font-semibold text-gray-800">
                   {item.quantity}
                 </div>
@@ -81,15 +82,26 @@ export default function BOMResults({ bom }) {
                 </div>
                 <div className="text-xs text-gray-500">subtotal</div>
               </div>
+              <div className="col-span-2 text-right">
+                <div className="text-gray-600 text-sm">
+                  {item.totalWeight > 0 ? `${item.totalWeight.toFixed(1)} kg` : '-'}
+                </div>
+                <div className="text-xs text-gray-400">weight</div>
+              </div>
             </div>
           ))}
           {/* Section Total Row */}
           <div className="px-4 py-3 bg-white/50 rounded-b-lg">
             <div className="flex justify-between items-center">
               <span className="font-semibold text-gray-700 text-sm">Section Subtotal:</span>
-              <span className="font-bold text-lg text-gray-900">
-                RM {sectionTotal.toFixed(2)}
-              </span>
+              <div className="flex items-center gap-6">
+                {sectionWeight > 0 && (
+                  <span className="text-sm text-gray-500">{sectionWeight.toFixed(1)} kg</span>
+                )}
+                <span className="font-bold text-lg text-gray-900">
+                  RM {sectionTotal.toFixed(2)}
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -129,6 +141,7 @@ export default function BOMResults({ bom }) {
   // Use BOM summary total if available, otherwise use calculated
   const grandTotal = bom.summary?.totalCost || calculatedTotal;
   const totalPanels = bom.summary?.totalPanels || 0;
+  const totalWeight = bom.summary?.totalWeight || 0;
 
   // Count items per section for stats
   const totalLineItems = [
@@ -179,10 +192,11 @@ export default function BOMResults({ bom }) {
 
       {/* Table Header */}
       <div className="grid grid-cols-12 gap-4 px-4 py-3 bg-gray-800 text-white font-semibold rounded-lg mb-4 text-sm">
-        <div className="col-span-5">Item / Description</div>
-        <div className="col-span-2 text-right">Quantity</div>
+        <div className="col-span-4">Item / Description</div>
+        <div className="col-span-1 text-right">Qty</div>
         <div className="col-span-2 text-right">Unit Price</div>
         <div className="col-span-3 text-right">Subtotal</div>
+        <div className="col-span-2 text-right">Weight (kg)</div>
       </div>
 
       {/* BOM Sections - Color coded */}
@@ -256,7 +270,7 @@ export default function BOMResults({ bom }) {
               Grand Total
             </div>
             <div className="text-xs mt-1 opacity-75">
-              {totalPanels} total panels • {totalLineItems} line items
+              {totalPanels} total panels • {totalLineItems} line items{totalWeight > 0 ? ` • ${totalWeight.toFixed(1)} kg` : ''}
             </div>
           </div>
           <div className="text-right">

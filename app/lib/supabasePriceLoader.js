@@ -34,7 +34,7 @@ export async function loadPrices() {
     while (hasMore) {
       const { data, error, count } = await supabase
         .from('products')
-        .select('sku, market_final_price, is_available, description', { count: 'exact' })
+        .select('sku, market_final_price, is_available, description, weight', { count: 'exact' })
         .eq('is_available', true)
         .not('market_final_price', 'is', null)
         .gt('market_final_price', 0)
@@ -73,7 +73,7 @@ export async function loadPrices() {
       const price = parseFloat(product.market_final_price);
 
       if (sku && !isNaN(price) && price > 0) {
-        prices[sku] = price;
+        prices[sku] = { price, weight: parseFloat(product.weight) || 0 };
         validCount++;
       } else {
         unavailableCount++;
@@ -117,6 +117,18 @@ export async function loadPrices() {
  * @param {string} sku - SKU to look up
  * @returns {number} Price in MYR
  */
+// Helper: extract price from cache entry (supports both {price,weight} object and legacy number)
+function _extractPrice(entry) {
+  if (!entry) return null;
+  return typeof entry === 'object' ? entry.price : entry;
+}
+
+// Helper: extract weight from cache entry
+function _extractWeight(entry) {
+  if (!entry || typeof entry !== 'object') return 0;
+  return entry.weight || 0;
+}
+
 export function getPrice(prices, sku) {
   if (!prices || Object.keys(prices).length === 0) {
     console.warn('⚠️  Price database not loaded');
@@ -133,7 +145,7 @@ export function getPrice(prices, sku) {
 
   // Strategy 1: Exact match (fastest, most accurate)
   if (prices[upperSku]) {
-    return prices[upperSku];
+    return _extractPrice(prices[upperSku]);
   }
 
   // Strategy 2: FRP panel suffix handling
@@ -144,7 +156,7 @@ export function getPrice(prices, sku) {
     let baseSku = upperSku.replace(/-BCL$|-BCR$|-ABL$|-ABR$/, '');
     if (prices[baseSku]) {
       console.log(`🔍 FRP corner fallback: ${sku} → ${baseSku}`);
-      return prices[baseSku];
+      return _extractPrice(prices[baseSku]);
     }
 
     // Try removing -B suffix and matching -A or base
@@ -152,12 +164,12 @@ export function getPrice(prices, sku) {
       const withoutB = baseSku.replace(/-B$/, '');
       if (prices[withoutB]) {
         console.log(`🔍 FRP -B to base: ${sku} → ${withoutB}`);
-        return prices[withoutB];
+        return _extractPrice(prices[withoutB]);
       }
       const withA = withoutB + '-A';
       if (prices[withA]) {
         console.log(`🔍 FRP -B to -A: ${sku} → ${withA}`);
-        return prices[withA];
+        return _extractPrice(prices[withA]);
       }
     }
 
@@ -166,7 +178,7 @@ export function getPrice(prices, sku) {
       const withoutA = baseSku.replace(/-A$/, '');
       if (prices[withoutA]) {
         console.log(`🔍 FRP -A to base: ${sku} → ${withoutA}`);
-        return prices[withoutA];
+        return _extractPrice(prices[withoutA]);
       }
     }
 
@@ -175,12 +187,12 @@ export function getPrice(prices, sku) {
       const withoutAB = baseSku.replace(/-AB$/, '');
       if (prices[withoutAB]) {
         console.log(`🔍 FRP -AB to base: ${sku} → ${withoutAB}`);
-        return prices[withoutAB];
+        return _extractPrice(prices[withoutAB]);
       }
       const withA = withoutAB + '-A';
       if (prices[withA]) {
         console.log(`🔍 FRP -AB to -A: ${sku} → ${withA}`);
-        return prices[withA];
+        return _extractPrice(prices[withA]);
       }
     }
   }
@@ -190,7 +202,7 @@ export function getPrice(prices, sku) {
     const frpBase = upperSku.split('-FRP')[0] + '-FRP';
     if (prices[frpBase]) {
       console.log(`🔍 FRP base match: ${sku} → ${frpBase}`);
-      return prices[frpBase];
+      return _extractPrice(prices[frpBase]);
     }
   }
 
@@ -200,7 +212,7 @@ export function getPrice(prices, sku) {
   );
   if (caseMatch) {
     console.log(`🔍 Case match: ${sku} → ${caseMatch}`);
-    return prices[caseMatch];
+    return _extractPrice(prices[caseMatch]);
   }
 
   // Strategy 5: Try without special characters for partition panels
@@ -208,7 +220,7 @@ export function getPrice(prices, sku) {
   const normalizedSku = upperSku.replace(/[φΦ]/g, '');
   if (normalizedSku !== upperSku && prices[normalizedSku]) {
     console.log(`🔍 Normalized match: ${sku} → ${normalizedSku}`);
-    return prices[normalizedSku];
+    return _extractPrice(prices[normalizedSku]);
   }
 
   // Strategy 6: Partial prefix match for FRP
@@ -219,7 +231,7 @@ export function getPrice(prices, sku) {
     );
     if (partialMatch) {
       console.log(`🔍 FRP prefix match: ${sku} → ${partialMatch}`);
-      return prices[partialMatch];
+      return _extractPrice(prices[partialMatch]);
     }
   }
 
@@ -234,6 +246,16 @@ export function getPrice(prices, sku) {
   }
 
   return 150.0; // Fallback price
+}
+
+/**
+ * Get weight for a specific SKU
+ * Uses the same cache as getPrice
+ */
+export function getWeight(prices, sku) {
+  if (!prices || !sku) return 0;
+  const upperSku = sku.toUpperCase();
+  return _extractWeight(prices[upperSku]);
 }
 
 /**

@@ -8,7 +8,7 @@
 import { useState, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { calculateBOM } from '../lib/bomCalculator';
-import { loadPrices, getPrice, getCacheStatus } from '../lib/supabasePriceLoader';
+import { loadPrices, getPrice, getWeight, getCacheStatus } from '../lib/supabasePriceLoader';
 import { getQuoteBySerial } from '../lib/quoteService';
 import TankInputs from './components/TankInputs';
 import BOMResults from './components/BOMResults';
@@ -161,14 +161,17 @@ function CalculatorContent() {
         result.cleats = cleatsResult;
       }
 
-      // Apply prices from Supabase to all BOM items
+      // Apply prices and weights from Supabase to all BOM items
       const applyPrices = (items) => {
         return items.map(item => {
           const price = getPrice(prices, item.sku);
+          const unitWeight = getWeight(prices, item.sku);
           return {
             ...item,
             unitPrice: price,
-            totalPrice: price * item.quantity
+            totalPrice: price * item.quantity,
+            unitWeight,
+            totalWeight: unitWeight * item.quantity
           };
         });
       };
@@ -219,6 +222,7 @@ function CalculatorContent() {
 
       result.summary.totalPanels = allPanels.reduce((sum, item) => sum + item.quantity, 0);
       result.summary.totalCost = allItems.reduce((sum, item) => sum + (item.totalPrice || 0), 0);
+      result.summary.totalWeight = allItems.reduce((sum, item) => sum + (item.totalWeight || 0), 0);
 
       // Log calculation details
       console.log('📊 BOM Summary:', {
