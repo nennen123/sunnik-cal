@@ -5,7 +5,7 @@
 // Updated: Added dimensionMode state for panel count vs meter input toggle
 // Preserved: Phase 2 functionality (partitionPositions, stays/cleats, Supabase pricing)
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { calculateBOM } from '../lib/bomCalculator';
 import { loadPrices, getPrice, getCacheStatus } from '../lib/supabasePriceLoader';
@@ -58,9 +58,11 @@ function CalculatorContent() {
   const [showResults, setShowResults] = useState(false);
   const [showUSD, setShowUSD] = useState(false);
   const [usdRate, setUsdRate] = useState('');
+  const [recalcTimestamp, setRecalcTimestamp] = useState(null);
   const [prices, setPrices] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const resultsRef = useRef(null);
 
   // Auto-set WLI & ladder quantities when partitions change
   useEffect(() => {
@@ -251,8 +253,14 @@ function CalculatorContent() {
         console.info(`ℹ️ ${zeroPricedStays.length} stay/cleat items at RM 0.00 (SKUs pending database)`);
       }
 
+      if (showResults) {
+        setRecalcTimestamp(Date.now());
+      }
       setBOM(result);
       setShowResults(true);
+      setTimeout(() => {
+        resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
 
     } catch (err) {
       console.error('❌ Calculation error:', err);
@@ -432,7 +440,7 @@ function CalculatorContent() {
           </div>
 
           {/* Right Panel - Results */}
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-2" ref={resultsRef}>
             {showResults && bom ? (
               <div className="space-y-6">
                 <SalesQuoteSummary
@@ -449,6 +457,7 @@ function CalculatorContent() {
                   setShowUSD={setShowUSD}
                   usdRate={usdRate}
                   setUsdRate={setUsdRate}
+                  recalcTimestamp={recalcTimestamp}
                 />
                 {role !== 'sales' && (
                   <BOMResults bom={bom} inputs={inputs} />

@@ -9,7 +9,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { saveQuote, saveRevision, getBaseSerialNumber, detectChanges } from '../../lib/quoteService';
 
-export default function SalesQuoteSummary({ bom, inputs, markupPercentage, setMarkupPercentage, rawBomCost = 0, operationMultiplier = 1.20, finalPrice, role = 'sales', editingQuote = null, showUSD, setShowUSD, usdRate, setUsdRate }) {
+export default function SalesQuoteSummary({ bom, inputs, markupPercentage, setMarkupPercentage, rawBomCost = 0, operationMultiplier = 1.20, finalPrice, role = 'sales', editingQuote = null, showUSD, setShowUSD, usdRate, setUsdRate, recalcTimestamp = null }) {
   const { user } = useAuth();
   const [isExporting, setIsExporting] = useState(false);
   const [exportError, setExportError] = useState(null);
@@ -25,6 +25,15 @@ export default function SalesQuoteSummary({ bom, inputs, markupPercentage, setMa
 
   // Custom additional items
   const [customItems, setCustomItems] = useState([]);
+
+  // Recalculation warning
+  const [showRecalcWarning, setShowRecalcWarning] = useState(false);
+
+  useEffect(() => {
+    if (recalcTimestamp) {
+      setShowRecalcWarning(true);
+    }
+  }, [recalcTimestamp]);
 
   // Initialize state from loaded quote when editing
   useEffect(() => {
@@ -487,6 +496,24 @@ export default function SalesQuoteSummary({ bom, inputs, markupPercentage, setMa
           </svg>
           Quotation Pricing
         </h3>
+
+        {/* Recalculation Warning */}
+        {showRecalcWarning && (
+          <div className="mb-4 p-3 bg-yellow-50 border border-yellow-300 rounded-lg flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-yellow-600 text-lg">⚠️</span>
+              <span className="text-sm text-yellow-800">
+                Recalculated with new specs. Please review your commission and custom items.
+              </span>
+            </div>
+            <button
+              onClick={() => setShowRecalcWarning(false)}
+              className="text-yellow-600 hover:text-yellow-800 text-sm font-medium"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
 
         {/* Markup Input */}
         <div className="mb-6 p-4 bg-gray-50 rounded-lg">
