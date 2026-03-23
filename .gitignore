@@ -27,8 +27,7 @@
 *.backup
 *.backup.js
 *.backup2
-*.bak
-*.bak2
+*.bak*
 *_backup_*
 
 # debug
