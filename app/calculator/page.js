@@ -55,6 +55,8 @@ function CalculatorContent() {
 
   const [bom, setBOM] = useState(null);
   const [showResults, setShowResults] = useState(false);
+  const [showUSD, setShowUSD] = useState(false);
+  const [usdRate, setUsdRate] = useState('');
   const [prices, setPrices] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -427,6 +429,10 @@ function CalculatorContent() {
                   finalPrice={bom.summary.totalCost * (1 + markupPercentage / 100)}
                   role={role}
                   editingQuote={editingQuote}
+                  showUSD={showUSD}
+                  setShowUSD={setShowUSD}
+                  usdRate={usdRate}
+                  setUsdRate={setUsdRate}
                 />
                 {role !== 'sales' && (
                   <BOMResults bom={bom} inputs={inputs} />

@@ -9,7 +9,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { saveQuote, saveRevision, getBaseSerialNumber, detectChanges } from '../../lib/quoteService';
 
-export default function SalesQuoteSummary({ bom, inputs, markupPercentage, setMarkupPercentage, finalPrice, role = 'sales', editingQuote = null }) {
+export default function SalesQuoteSummary({ bom, inputs, markupPercentage, setMarkupPercentage, finalPrice, role = 'sales', editingQuote = null, showUSD, setShowUSD, usdRate, setUsdRate }) {
   const { user } = useAuth();
   const [isExporting, setIsExporting] = useState(false);
   const [exportError, setExportError] = useState(null);
@@ -60,6 +60,15 @@ export default function SalesQuoteSummary({ bom, inputs, markupPercentage, setMa
     : Number(commissionValue) || 0;
   const customItemsTotal = customItems.reduce((sum, item) => sum + (Number(item.price) || 0), 0);
   const grandTotal = subtotalAfterMarkup + commissionAmount + customItemsTotal;
+
+  // USD conversion helper
+  const isUSD = showUSD && usdRate && parseFloat(usdRate) > 0;
+  const currencySymbol = isUSD ? 'USD' : 'RM';
+  const convertPrice = (rm) => {
+    if (isUSD) return rm / parseFloat(usdRate);
+    return rm;
+  };
+  const formatPrice = (amount) => convertPrice(amount).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   // Material names (customer-friendly)
   const materialNames = {
@@ -536,7 +545,7 @@ export default function SalesQuoteSummary({ bom, inputs, markupPercentage, setMa
           </div>
           <div className="flex items-center gap-2">
             {commissionType === 'fixed' && (
-              <span className="text-gray-600 font-medium">RM</span>
+              <span className="text-gray-600 font-medium">{currencySymbol}</span>
             )}
             <input
               type="number"
@@ -552,7 +561,7 @@ export default function SalesQuoteSummary({ bom, inputs, markupPercentage, setMa
             )}
             {commissionAmount > 0 && (
               <span className="text-sm text-gray-500 ml-2">
-                = RM {commissionAmount.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                = {currencySymbol} {formatPrice(commissionAmount)}
               </span>
             )}
           </div>
@@ -587,7 +596,7 @@ export default function SalesQuoteSummary({ bom, inputs, markupPercentage, setMa
                 className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
               <div className="flex items-center gap-1">
-                <span className="text-gray-500 text-sm">RM</span>
+                <span className="text-gray-500 text-sm">{currencySymbol}</span>
                 <input
                   type="number"
                   min="0"
@@ -612,7 +621,7 @@ export default function SalesQuoteSummary({ bom, inputs, markupPercentage, setMa
           {customItemsTotal > 0 && (
             <div className="flex justify-end mt-2 pt-2 border-t border-gray-200">
               <span className="text-sm text-gray-600">
-                Items subtotal: <span className="font-semibold">RM {customItemsTotal.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                Items subtotal: <span className="font-semibold">{currencySymbol} {formatPrice(customItemsTotal)}</span>
               </span>
             </div>
           )}
@@ -622,35 +631,72 @@ export default function SalesQuoteSummary({ bom, inputs, markupPercentage, setMa
         <div className="mb-4 space-y-2">
           <div className="flex justify-between text-sm text-gray-600 px-1">
             <span>Subtotal (after markup)</span>
-            <span>RM {subtotalAfterMarkup.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+            <span>{currencySymbol} {formatPrice(subtotalAfterMarkup)}</span>
           </div>
           {commissionAmount > 0 && (
             <div className="flex justify-between text-sm text-gray-600 px-1">
               <span>Commission ({commissionType === 'percentage' ? `${commissionValue}%` : 'fixed'})</span>
-              <span>RM {commissionAmount.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              <span>{currencySymbol} {formatPrice(commissionAmount)}</span>
             </div>
           )}
           {customItemsTotal > 0 && (
             <div className="flex justify-between text-sm text-gray-600 px-1">
               <span>Additional Items ({customItems.filter(i => i.description && i.price).length})</span>
-              <span>RM {customItemsTotal.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              <span>{currencySymbol} {formatPrice(customItemsTotal)}</span>
             </div>
           )}
+        </div>
+
+        {/* USD Toggle */}
+        <div className="mb-4 p-4 bg-gray-50 rounded-lg">
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showUSD}
+                onChange={(e) => setShowUSD(e.target.checked)}
+                className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              <span className="text-sm text-gray-700 font-medium">Show quotation in USD</span>
+            </label>
+            {showUSD && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-500">1 USD =</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="4.45"
+                  value={usdRate}
+                  onChange={(e) => setUsdRate(e.target.value)}
+                  className="w-20 text-sm font-semibold px-2 py-1.5 border border-gray-300 rounded-md outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+                <span className="text-xs text-gray-500">MYR</span>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Grand Total Display */}
         <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-xl p-6 text-white shadow-lg">
           <div className="flex justify-between items-center">
             <div>
-              <div className="text-sm uppercase tracking-wide opacity-90 font-medium">Total Quoted Price</div>
+              <div className="text-sm uppercase tracking-wide opacity-90 font-medium">
+                {isUSD ? 'Total Quoted Price (USD)' : 'Total Quoted Price'}
+              </div>
               <div className="text-xs mt-1 opacity-75">
                 Complete tank system{commissionAmount > 0 || customItemsTotal > 0 ? ' + additions' : ''}
               </div>
             </div>
             <div className="text-right">
               <div className="text-4xl font-bold">
-                RM {grandTotal.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                {currencySymbol} {formatPrice(grandTotal)}
               </div>
+              {isUSD && (
+                <div className="text-xs opacity-75 mt-1">
+                  RM {grandTotal.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} @ {usdRate} MYR/USD
+                </div>
+              )}
             </div>
           </div>
         </div>
