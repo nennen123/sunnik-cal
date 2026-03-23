@@ -28,10 +28,12 @@ export default function TankInputs({ inputs, setInputs }) {
   useEffect(() => {
     // MS tanks use HDG accessories (standard coating), all others match tank material
     const accessoryMat = inputs.material === 'MS' ? 'HDG' : inputs.material;
+    // WLI doesn't come in FRP — default to HDG for FRP tanks
+    const wliMat = (inputs.material === 'FRP' || inputs.material === 'MS') ? 'HDG' : inputs.material;
     if (['SS316', 'SS304', 'HDG', 'MS', 'FRP'].includes(inputs.material)) {
       setInputs(prev => ({
         ...prev,
-        wliMaterial: accessoryMat,
+        wliMaterial: wliMat,
         internalLadderMaterial: accessoryMat,
         externalLadderMaterial: accessoryMat,
         manholeMaterial: accessoryMat,
