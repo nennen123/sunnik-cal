@@ -442,8 +442,14 @@ export default function SalesQuoteSummary({ bom, inputs, markupPercentage, setMa
             <span className="font-semibold">TOTAL PANELS</span>
             <span className="font-bold text-lg">{totalPanelCount} panels</span>
           </div>
-          {bom.summary?.totalWeight > 0 && (
+          {bom.summary?.panelsWeight > 0 && (
             <div className="flex justify-between py-2 px-3 bg-gray-100 rounded mt-2">
+              <span className="text-gray-600 text-sm">Estimated Panels Weight</span>
+              <span className="font-semibold text-gray-900 text-sm">{bom.summary.panelsWeight.toFixed(1)} kg</span>
+            </div>
+          )}
+          {bom.summary?.totalWeight > 0 && (
+            <div className="flex justify-between py-2 px-3 bg-gray-100 rounded mt-1">
               <span className="text-gray-600 text-sm">Estimated Total Weight</span>
               <span className="font-semibold text-gray-900 text-sm">{bom.summary.totalWeight.toFixed(1)} kg</span>
             </div>

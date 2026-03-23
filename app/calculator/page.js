@@ -222,6 +222,7 @@ function CalculatorContent() {
 
       result.summary.totalPanels = allPanels.reduce((sum, item) => sum + item.quantity, 0);
       result.summary.totalCost = allItems.reduce((sum, item) => sum + (item.totalPrice || 0), 0);
+      result.summary.panelsWeight = allPanels.reduce((sum, item) => sum + (item.totalWeight || 0), 0);
       result.summary.totalWeight = allItems.reduce((sum, item) => sum + (item.totalWeight || 0), 0);
 
       // Log calculation details
