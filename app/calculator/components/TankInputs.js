@@ -836,18 +836,45 @@ export default function TankInputs({ inputs, setInputs }) {
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Water Level Indicator (WLI)
           </label>
-          <select
-            value={inputs.wliMaterial || 'None'}
-            onChange={(e) => handleChange('wliMaterial', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="None">None</option>
-            <option value="HDG">HDG (Hot Dip Galvanized)</option>
-            <option value="MS">MS (Mild Steel)</option>
-            <option value="SS316">SS316 (Stainless Steel 316)</option>
-            <option value="SS304">SS304 (Stainless Steel 304)</option>
-            <option value="PVC">PVC Tube</option>
-          </select>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs text-gray-600 mb-1">
+                Quantity
+              </label>
+              <select
+                value={inputs.wliQty || 0}
+                onChange={(e) => {
+                  const qty = parseInt(e.target.value);
+                  handleChange('wliQty', qty);
+                  if (qty === 0) handleChange('wliMaterial', 'None');
+                  else if (inputs.wliMaterial === 'None') handleChange('wliMaterial', inputs.material || 'HDG');
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                {[0,1,2,3,4,5,6,7,8,9,10].map(n => (
+                  <option key={n} value={n}>{n === 0 ? '0 (None)' : n}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-gray-600 mb-1">
+                Material
+              </label>
+              <select
+                value={inputs.wliMaterial || 'None'}
+                onChange={(e) => handleChange('wliMaterial', e.target.value)}
+                disabled={!inputs.wliQty || inputs.wliQty === 0}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-400"
+              >
+                <option value="None">None</option>
+                <option value="HDG">HDG</option>
+                <option value="MS">MS</option>
+                <option value="SS316">SS316</option>
+                <option value="SS304">SS304</option>
+                <option value="PVC">PVC Tube</option>
+              </select>
+            </div>
+          </div>
         </div>
 
         {/* Internal Ladder */}

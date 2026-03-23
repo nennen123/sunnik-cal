@@ -5,7 +5,7 @@
 // Updated: Added dimensionMode state for panel count vs meter input toggle
 // Preserved: Phase 2 functionality (partitionPositions, stays/cleats, Supabase pricing)
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { calculateBOM } from '../lib/bomCalculator';
 import { loadPrices, getPrice, getCacheStatus } from '../lib/supabasePriceLoader';
@@ -43,6 +43,7 @@ function CalculatorContent() {
     internalSupport: true,   // Default ON for steel tanks (stay system)
     externalSupport: false,  // Default OFF (user enables if needed)
     iBeamSize: '150x75',
+    wliQty: 1,
     wliMaterial: 'Ball Type',
     internalLadderQty: 1,
     internalLadderMaterial: 'HDG',
@@ -60,6 +61,33 @@ function CalculatorContent() {
   const [prices, setPrices] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Auto-set WLI & ladder quantities when partitions change
+  const prevPartitionCount = useRef(inputs.partitionCount);
+
+  useEffect(() => {
+    if (inputs.partitionCount > 0 && prevPartitionCount.current === 0) {
+      // User just added partitions — auto-set quantities
+      const sections = inputs.partitionCount + 1;
+      setInputs(prev => ({
+        ...prev,
+        wliQty: sections,
+        wliMaterial: prev.wliMaterial === 'None' ? prev.material : prev.wliMaterial,
+        internalLadderQty: sections,
+        externalLadderQty: sections,
+      }));
+    } else if (inputs.partitionCount > 0 && inputs.partitionCount !== prevPartitionCount.current) {
+      // User changed partition count (but already had partitions) — update quantities
+      const sections = inputs.partitionCount + 1;
+      setInputs(prev => ({
+        ...prev,
+        wliQty: sections,
+        internalLadderQty: sections,
+        externalLadderQty: sections,
+      }));
+    }
+    prevPartitionCount.current = inputs.partitionCount;
+  }, [inputs.partitionCount]);
 
   // Load prices from Supabase on component mount
   useEffect(() => {
@@ -273,6 +301,7 @@ function CalculatorContent() {
       internalSupport: true,
       externalSupport: false,
       iBeamSize: '150x75',
+      wliQty: 1,
       wliMaterial: 'Ball Type',
       internalLadderQty: 1,
       internalLadderMaterial: 'HDG',

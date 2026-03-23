@@ -1388,6 +1388,7 @@ export function calculateFRPBOM(inputs) {
     partitionDirection = 'width',
     internalSupport = false,
     externalSupport = false,
+    wliQty = 1,
     wliMaterial = 'None',
     internalLadderQty = 0,
     internalLadderMaterial = 'HDG',
@@ -1796,12 +1797,12 @@ export function calculateFRPBOM(inputs) {
   // ===========================
 
   // Water Level Indicator
-  if (wliMaterial && wliMaterial !== 'None') {
+  if (wliMaterial && wliMaterial !== 'None' && wliQty > 0) {
     const wliHeightCode = Math.round(height * 10) + 'M';
     bom.accessories.push({
       sku: `WLI-BT-${wliHeightCode}`,
       description: `Water Level Indicator - Ball Type ${height}M`,
-      quantity: 1,
+      quantity: wliQty,
       unitPrice: 0
     });
   }
@@ -2061,6 +2062,7 @@ export function calculateSteelBOM(inputs) {
     internalSupport = false,
     externalSupport = false,
     iBeamSize = '150x75',
+    wliQty = 1,
     wliMaterial = 'None',
     internalLadderQty = 0,
     internalLadderMaterial = 'HDG',
@@ -2608,12 +2610,12 @@ export function calculateSteelBOM(inputs) {
   const isImperial = panelType === 'i';
 
   // Water Level Indicator - format: WLI-BT-{height}M (Ball Type, height-based)
-  if (wliMaterial && wliMaterial !== 'None') {
+  if (wliMaterial && wliMaterial !== 'None' && wliQty > 0) {
     const wliHeightCode = Math.round(height * 10) + 'M'; // 3m -> 30M
     bom.accessories.push({
       sku: `WLI-BT-${wliHeightCode}`,
       description: `Water Level Indicator - Ball Type ${height}M`,
-      quantity: 1,
+      quantity: wliQty,
       unitPrice: 0
     });
   }
