@@ -55,9 +55,11 @@ export default function SalesQuoteSummary({ bom, inputs, markupPercentage, setMa
   const actualHeight = dimensionMode === 'panel' ? inputs.height * panelSize : inputs.height;
 
   const volume = actualLength * actualWidth * actualHeight;
-  const volumeLiters = volume * 1000;
   const effectiveVolume = actualLength * actualWidth * (actualHeight - (inputs.freeboard || 0.2));
-  const effectiveVolumeLiters = effectiveVolume * 1000;
+  const volumeUSGal = Math.round(volume * 264.172);
+  const volumeUKGal = Math.round(volume * 219.969);
+  const effectiveUSGal = Math.round(effectiveVolume * 264.172);
+  const effectiveUKGal = Math.round(effectiveVolume * 219.969);
 
   // Base price (before markup) — includes operation cost
   const basePrice = rawBomCost * operationMultiplier;
@@ -373,12 +375,12 @@ export default function SalesQuoteSummary({ bom, inputs, markupPercentage, setMa
               </span>
             </div>
             <div className="flex justify-between py-2 border-b border-gray-100">
-              <span className="text-gray-600">Nominal Volume</span>
-              <span className="font-semibold text-gray-900">{volumeLiters.toLocaleString()} Liters</span>
-            </div>
-            <div className="flex justify-between py-2 border-b border-gray-100">
-              <span className="text-gray-600">Effective Capacity</span>
-              <span className="font-semibold text-gray-900">{effectiveVolumeLiters.toLocaleString()} Liters</span>
+              <span className="text-gray-600">Capacity</span>
+              <div className="text-right">
+                <div className="font-semibold text-gray-900">{volume.toFixed(2)} m³ (nominal) / {effectiveVolume.toFixed(2)} m³ (effective)</div>
+                <div className="text-xs text-gray-500">{volumeUSGal.toLocaleString()} US Gal / {effectiveUSGal.toLocaleString()} US Gal (effective)</div>
+                <div className="text-xs text-gray-500">{volumeUKGal.toLocaleString()} UK Gal / {effectiveUKGal.toLocaleString()} UK Gal (effective)</div>
+              </div>
             </div>
           </div>
           <div className="space-y-3">

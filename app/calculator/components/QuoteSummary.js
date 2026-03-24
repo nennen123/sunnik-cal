@@ -41,9 +41,11 @@ export default function QuoteSummary({ bom, inputs }) {
   const actualHeight = dimensionMode === 'panel' ? inputs.height * panelSize : inputs.height;
 
   const volume = actualLength * actualWidth * actualHeight;
-  const volumeLiters = volume * 1000;
   const effectiveVolume = actualLength * actualWidth * (actualHeight - (inputs.freeboard || 0.2));
-  const effectiveVolumeLiters = effectiveVolume * 1000;
+  const volumeUSGal = Math.round(volume * 264.172);
+  const volumeUKGal = Math.round(volume * 219.969);
+  const effectiveUSGal = Math.round(effectiveVolume * 264.172);
+  const effectiveUKGal = Math.round(effectiveVolume * 219.969);
 
   // Format dimensions string
   let dimensionsStr = `${actualLength.toFixed(actualLength % 1 === 0 ? 0 : 2)}m × ${actualWidth.toFixed(actualWidth % 1 === 0 ? 0 : 2)}m × ${actualHeight.toFixed(actualHeight % 1 === 0 ? 0 : 2)}m`;
@@ -95,13 +97,13 @@ export default function QuoteSummary({ bom, inputs }) {
         </div>
         <div className="text-right">
           <div className="text-3xl font-bold">
-            {effectiveVolumeLiters.toLocaleString()} L
+            {volume.toFixed(2)} m³ <span className="text-lg">(nom)</span> / {effectiveVolume.toFixed(2)} m³ <span className="text-lg">(eff)</span>
+          </div>
+          <div className="text-xs text-blue-200 mt-1">
+            {volumeUSGal.toLocaleString()} US Gal / {effectiveUSGal.toLocaleString()} US Gal (eff)
           </div>
           <div className="text-xs text-blue-200">
-            Effective capacity
-          </div>
-          <div className="text-sm text-blue-100 mt-1">
-            ({volumeLiters.toLocaleString()} L nominal)
+            {volumeUKGal.toLocaleString()} UK Gal / {effectiveUKGal.toLocaleString()} UK Gal (eff)
           </div>
         </div>
       </div>
