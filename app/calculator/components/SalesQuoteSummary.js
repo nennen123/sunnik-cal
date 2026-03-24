@@ -366,49 +366,39 @@ export default function SalesQuoteSummary({ bom, inputs, markupPercentage, setMa
           Tank Configuration
         </h3>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-3">
-            <div className="flex justify-between py-2 border-b border-gray-100">
-              <span className="text-gray-600">Dimensions</span>
-              <span className="font-semibold text-gray-900">
-                {actualLength.toFixed(1)}m x {actualWidth.toFixed(1)}m x {actualHeight.toFixed(1)}m
-              </span>
-            </div>
-            <div className="flex justify-between py-2 border-b border-gray-100">
-              <span className="text-gray-600">Material</span>
-              <span className="font-semibold text-gray-900">{materialNames[inputs.material] || inputs.material}</span>
-            </div>
+        <div className="space-y-0">
+          <div className="flex justify-between py-2 border-b border-gray-100">
+            <span className="text-gray-600">Dimensions</span>
+            <span className="font-semibold text-gray-900">
+              {actualLength.toFixed(1)}m x {actualWidth.toFixed(1)}m x {actualHeight.toFixed(1)}m
+            </span>
           </div>
-          <div className="space-y-3">
-            {/* Build Standard - hidden for SS materials */}
-            {inputs.material !== 'SS316' && inputs.material !== 'SS304' && (
-              <div className="flex justify-between py-2 border-b border-gray-100">
-                <span className="text-gray-600">Build Standard</span>
-                <span className="font-semibold text-gray-900">{buildStandardNames[inputs.buildStandard] || inputs.buildStandard}</span>
-              </div>
-            )}
-            <div className="flex justify-between py-2 border-b border-gray-100">
-              <span className="text-gray-600">No. of Partitions</span>
-              <span className="text-right">
-                <span className="font-semibold text-gray-900">{inputs.partitionCount}</span>
-                <span className="block text-xs text-gray-500">
-                  {inputs.partitionCount + 1} compartment{inputs.partitionCount + 1 > 1 ? 's' : ''}
-                </span>
-              </span>
-            </div>
-            <div className="flex justify-between py-2 border-b border-gray-100">
-              <span className="text-gray-600">Support Type</span>
-              <span className="font-semibold text-gray-900 text-right">{getSupportDescription()}</span>
-            </div>
+          <div className="flex justify-between py-2 border-b border-gray-100">
+            <span className="text-gray-600">Material</span>
+            <span className="font-semibold text-gray-900">{materialNames[inputs.material] || inputs.material}</span>
           </div>
-        </div>
-
-        {/* Capacity - full-width row */}
-        <div className="flex justify-between py-2 border-b border-gray-100 mt-4">
-          <span className="text-gray-600">Capacity</span>
-          <div className="text-right">
-            <div className="font-semibold text-gray-900">{volume.toFixed(2)} m³ (nominal) / {effectiveVolume.toFixed(2)} m³ (effective)</div>
-            <div className="text-xs text-gray-500">{effectiveUSGal.toLocaleString()} US Gal / {effectiveUKGal.toLocaleString()} UK Gal (effective)</div>
+          {/* Build Standard - hidden for SS materials */}
+          {inputs.material !== 'SS316' && inputs.material !== 'SS304' && (
+            <div className="flex justify-between py-2 border-b border-gray-100">
+              <span className="text-gray-600">Build Standard</span>
+              <span className="font-semibold text-gray-900">{buildStandardNames[inputs.buildStandard] || inputs.buildStandard}</span>
+            </div>
+          )}
+          <div className="flex justify-between py-2 border-b border-gray-100">
+            <span className="text-gray-600">Support Type</span>
+            <span className="font-semibold text-gray-900">{getSupportDescription()}</span>
+          </div>
+          <div className="flex justify-between py-2 border-b border-gray-100">
+            <span className="text-gray-600">No. of Partitions</span>
+            <span className="font-semibold text-gray-900">{inputs.partitionCount} ({inputs.partitionCount + 1} compartment{inputs.partitionCount + 1 > 1 ? 's' : ''})</span>
+          </div>
+          <div className="flex justify-between py-2 border-b border-gray-100">
+            <span className="text-gray-600">Capacity (Nominal)</span>
+            <span className="font-semibold text-gray-900">{volume.toFixed(2)} m³ / {volumeUSGal.toLocaleString()} US Gal / {volumeUKGal.toLocaleString()} UK Gal</span>
+          </div>
+          <div className="flex justify-between py-2 border-b border-gray-100">
+            <span className="text-gray-600">Capacity (Effective)</span>
+            <span className="font-semibold text-gray-900">{effectiveVolume.toFixed(2)} m³ / {effectiveUSGal.toLocaleString()} US Gal / {effectiveUKGal.toLocaleString()} UK Gal</span>
           </div>
         </div>
       </div>
