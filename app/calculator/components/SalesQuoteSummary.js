@@ -366,38 +366,38 @@ export default function SalesQuoteSummary({ bom, inputs, markupPercentage, setMa
           Tank Configuration
         </h3>
 
-        <div className="space-y-0">
-          <div className="flex justify-between py-2 border-b border-gray-100">
-            <span className="text-gray-600">Dimensions</span>
+        <div className="space-y-0 max-w-2xl">
+          <div className="flex py-2 border-b border-gray-100">
+            <span className="text-gray-600 w-48 shrink-0">Dimensions</span>
             <span className="font-semibold text-gray-900">
               {actualLength.toFixed(1)}m x {actualWidth.toFixed(1)}m x {actualHeight.toFixed(1)}m
             </span>
           </div>
-          <div className="flex justify-between py-2 border-b border-gray-100">
-            <span className="text-gray-600">Material</span>
+          <div className="flex py-2 border-b border-gray-100">
+            <span className="text-gray-600 w-48 shrink-0">Material</span>
             <span className="font-semibold text-gray-900">{materialNames[inputs.material] || inputs.material}</span>
           </div>
           {/* Build Standard - hidden for SS materials */}
           {inputs.material !== 'SS316' && inputs.material !== 'SS304' && (
-            <div className="flex justify-between py-2 border-b border-gray-100">
-              <span className="text-gray-600">Build Standard</span>
+            <div className="flex py-2 border-b border-gray-100">
+              <span className="text-gray-600 w-48 shrink-0">Build Standard</span>
               <span className="font-semibold text-gray-900">{buildStandardNames[inputs.buildStandard] || inputs.buildStandard}</span>
             </div>
           )}
-          <div className="flex justify-between py-2 border-b border-gray-100">
-            <span className="text-gray-600">Support Type</span>
+          <div className="flex py-2 border-b border-gray-100">
+            <span className="text-gray-600 w-48 shrink-0">Support Type</span>
             <span className="font-semibold text-gray-900">{getSupportDescription()}</span>
           </div>
-          <div className="flex justify-between py-2 border-b border-gray-100">
-            <span className="text-gray-600">No. of Partitions</span>
+          <div className="flex py-2 border-b border-gray-100">
+            <span className="text-gray-600 w-48 shrink-0">No. of Partitions</span>
             <span className="font-semibold text-gray-900">{inputs.partitionCount} ({inputs.partitionCount + 1} compartment{inputs.partitionCount + 1 > 1 ? 's' : ''})</span>
           </div>
-          <div className="flex justify-between py-2 border-b border-gray-100">
-            <span className="text-gray-600">Capacity (Nominal)</span>
+          <div className="flex py-2 border-b border-gray-100">
+            <span className="text-gray-600 w-48 shrink-0">Capacity (Nominal)</span>
             <span className="font-semibold text-gray-900">{volume.toFixed(2)} m³ / {volumeUSGal.toLocaleString()} US Gal / {volumeUKGal.toLocaleString()} UK Gal</span>
           </div>
-          <div className="flex justify-between py-2 border-b border-gray-100">
-            <span className="text-gray-600">Capacity (Effective)</span>
+          <div className="flex py-2 border-b border-gray-100">
+            <span className="text-gray-600 w-48 shrink-0">Capacity (Effective)</span>
             <span className="font-semibold text-gray-900">{effectiveVolume.toFixed(2)} m³ / {effectiveUSGal.toLocaleString()} US Gal / {effectiveUKGal.toLocaleString()} UK Gal</span>
           </div>
         </div>
