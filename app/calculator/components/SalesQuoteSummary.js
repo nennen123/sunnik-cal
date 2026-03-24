@@ -375,19 +375,11 @@ export default function SalesQuoteSummary({ bom, inputs, markupPercentage, setMa
               </span>
             </div>
             <div className="flex justify-between py-2 border-b border-gray-100">
-              <span className="text-gray-600">Capacity</span>
-              <div className="text-right">
-                <div className="font-semibold text-gray-900">{volume.toFixed(2)} m³ (nominal) / {effectiveVolume.toFixed(2)} m³ (effective)</div>
-                <div className="text-xs text-gray-500">{volumeUSGal.toLocaleString()} US Gal / {effectiveUSGal.toLocaleString()} US Gal (effective)</div>
-                <div className="text-xs text-gray-500">{volumeUKGal.toLocaleString()} UK Gal / {effectiveUKGal.toLocaleString()} UK Gal (effective)</div>
-              </div>
-            </div>
-          </div>
-          <div className="space-y-3">
-            <div className="flex justify-between py-2 border-b border-gray-100">
               <span className="text-gray-600">Material</span>
               <span className="font-semibold text-gray-900">{materialNames[inputs.material] || inputs.material}</span>
             </div>
+          </div>
+          <div className="space-y-3">
             {/* Build Standard - hidden for SS materials */}
             {inputs.material !== 'SS316' && inputs.material !== 'SS304' && (
               <div className="flex justify-between py-2 border-b border-gray-100">
@@ -408,6 +400,15 @@ export default function SalesQuoteSummary({ bom, inputs, markupPercentage, setMa
               <span className="text-gray-600">Support Type</span>
               <span className="font-semibold text-gray-900 text-right">{getSupportDescription()}</span>
             </div>
+          </div>
+        </div>
+
+        {/* Capacity - full-width row */}
+        <div className="flex justify-between py-2 border-b border-gray-100 mt-4">
+          <span className="text-gray-600">Capacity</span>
+          <div className="text-right">
+            <div className="font-semibold text-gray-900">{volume.toFixed(2)} m³ (nominal) / {effectiveVolume.toFixed(2)} m³ (effective)</div>
+            <div className="text-xs text-gray-500">{effectiveUSGal.toLocaleString()} US Gal / {effectiveUKGal.toLocaleString()} UK Gal (effective)</div>
           </div>
         </div>
       </div>
