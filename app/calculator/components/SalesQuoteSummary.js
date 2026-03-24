@@ -61,6 +61,37 @@ export default function SalesQuoteSummary({ bom, inputs, markupPercentage, setMa
   const effectiveUSGal = Math.round(effectiveVolume * 264.172);
   const effectiveUKGal = Math.round(effectiveVolume * 219.969);
 
+  // Build dimension string with partition bracket notation
+  const getDimensionDisplay = () => {
+    const L = actualLength.toFixed(1);
+    const W = actualWidth.toFixed(1);
+    const H = actualHeight.toFixed(1);
+    const count = inputs.partitionCount || 0;
+
+    if (count === 0) return `${L}m x ${W}m x ${H}m`;
+
+    const direction = inputs.partitionDirection || 'width';
+    const positions = (inputs.partitionPositions || []).slice().sort((a, b) => a - b);
+    const totalPanels = direction === 'length'
+      ? Math.ceil((inputs.length || 1) / panelSize)
+      : Math.ceil((inputs.width || 1) / panelSize);
+
+    // Calculate section sizes
+    const sections = [];
+    let lastPos = 0;
+    for (const pos of positions) {
+      sections.push(((pos - lastPos) * panelSize).toFixed(1));
+      lastPos = pos;
+    }
+    sections.push(((totalPanels - lastPos) * panelSize).toFixed(1));
+    const bracket = `(${sections.join(' + ')})`;
+
+    if (direction === 'length') {
+      return `${L}m ${bracket} x ${W}m x ${H}m`;
+    }
+    return `${L}m x ${W}m ${bracket} x ${H}m`;
+  };
+
   // Base price (before markup) — includes operation cost
   const basePrice = rawBomCost * operationMultiplier;
 
@@ -370,7 +401,7 @@ export default function SalesQuoteSummary({ bom, inputs, markupPercentage, setMa
           <div className="flex py-2 border-b border-gray-100">
             <span className="text-gray-600 w-48 shrink-0">Dimensions</span>
             <span className="font-semibold text-gray-900">
-              {actualLength.toFixed(1)}m x {actualWidth.toFixed(1)}m x {actualHeight.toFixed(1)}m
+              {getDimensionDisplay()}
             </span>
           </div>
           <div className="flex py-2 border-b border-gray-100">
