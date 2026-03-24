@@ -1244,6 +1244,10 @@ export default function TankInputs({ inputs, setInputs }) {
         const actualHeight = dimensionMode === 'panel' ? (inputs.height || 0) * panelSize : (inputs.height || 0);
         const nominalVolume = actualLength * actualWidth * actualHeight;
         const effectiveVolume = actualLength * actualWidth * (actualHeight - (inputs.freeboard || 0.2));
+        const nomUSGal = Math.round(nominalVolume * 264.172);
+        const nomUKGal = Math.round(nominalVolume * 219.969);
+        const effUSGal = Math.round(effectiveVolume * 264.172);
+        const effUKGal = Math.round(effectiveVolume * 219.969);
 
         return (
           <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
@@ -1255,10 +1259,10 @@ export default function TankInputs({ inputs, setInputs }) {
             <div className="mb-2">
               <div className="text-xs text-blue-600">Nominal (full height):</div>
               <div className="text-xl font-bold text-blue-900">
-                {(nominalVolume * 1000).toLocaleString()} L
+                {nominalVolume.toFixed(2)} m³
               </div>
               <div className="text-xs text-blue-600">
-                {nominalVolume.toFixed(2)} m³
+                {nomUSGal.toLocaleString()} US Gal / {nomUKGal.toLocaleString()} UK Gal
               </div>
             </div>
 
@@ -1266,10 +1270,10 @@ export default function TankInputs({ inputs, setInputs }) {
             <div className="pt-2 border-t border-blue-200">
               <div className="text-xs text-blue-600">Effective (after freeboard):</div>
               <div className="text-xl font-bold text-blue-900">
-                {(effectiveVolume * 1000).toLocaleString()} L
+                {effectiveVolume.toFixed(2)} m³
               </div>
               <div className="text-xs text-blue-600">
-                {effectiveVolume.toFixed(2)} m³
+                {effUSGal.toLocaleString()} US Gal / {effUKGal.toLocaleString()} UK Gal
               </div>
             </div>
           </div>
