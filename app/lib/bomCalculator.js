@@ -1396,6 +1396,7 @@ export function calculateFRPBOM(inputs) {
     externalLadderMaterial = 'HDG',
     manholeQty = 1,
     safetyCage = false,
+    bnwMaterial = 'HDG',
     pipeFittings = [] // Array of pipe fitting configurations
   } = inputs;
 
@@ -1800,6 +1801,16 @@ export function calculateFRPBOM(inputs) {
   // ACCESSORIES
   // ===========================
 
+  // Normalize material code for accessory SKUs
+  // SS316 falls back to SS304 (no SS316 ladders exist in database)
+  const normalizeAccessoryMaterial = (mat) => {
+    if (mat === 'SS316') return 'SS304';
+    if (mat === 'SS304') return 'SS304';
+    if (mat === 'FRP') return 'FRP';
+    if (mat === 'MS') return 'MS';
+    return 'HDG';
+  };
+
   // Water Level Indicator
   if (wliMaterial && wliMaterial !== 'None' && wliQty > 0) {
     const wliHeightCode = Math.round(height * 10) + 'M';
@@ -1811,46 +1822,48 @@ export function calculateFRPBOM(inputs) {
     });
   }
 
-  // Internal Ladder (FRP tanks use FRP or HDG ladders, not SS316)
+  // Internal Ladder
   if (internalLadderQty > 0) {
-    const ladderMat = internalLadderMaterial === 'FRP' ? 'FRP' : 'HDG';
-    const ladderHeightCode = Math.round(height * 10) + 'M';
+    const intLadderMat = normalizeAccessoryMaterial(internalLadderMaterial);
+    const intHeightCode = Math.round(height * 10) + 'M';
     bom.accessories.push({
-      sku: `IL-${ladderMat}-${ladderHeightCode}`,
-      description: `Internal Ladder - ${ladderMat} ${ladderHeightCode}`,
+      sku: `IL-${intLadderMat}-${intHeightCode}`,
+      description: `Internal Ladder - ${intLadderMat} ${intHeightCode}`,
       quantity: internalLadderQty,
       unitPrice: 0
     });
   }
 
-  // External Ladder (HDG only for FRP tanks)
+  // External Ladder
   if (externalLadderQty > 0) {
-    const ladderHeightCode = Math.round(height * 10) + 'M';
+    const extLadderMat = normalizeAccessoryMaterial(externalLadderMaterial);
+    const extHeightCode = Math.round(height * 10) + 'M';
     bom.accessories.push({
-      sku: `EL-HDG-${ladderHeightCode}`,
-      description: `External Ladder - HDG ${ladderHeightCode}`,
+      sku: `EL-${extLadderMat}-${extHeightCode}`,
+      description: `External Ladder - ${extLadderMat} ${extHeightCode}`,
       quantity: externalLadderQty,
       unitPrice: 0
     });
 
     // Safety Cage
-    if (safetyCage || height > 3) {
+    if (safetyCage && height > 3) {
       const cageHeightCode = Math.round(height * 10) + 'm';
       bom.accessories.push({
-        sku: `SafetyCage-${cageHeightCode}-HDG`,
-        description: `Safety Cage - HDG ${cageHeightCode}`,
+        sku: `SafetyCage-${cageHeightCode}-${extLadderMat}`,
+        description: `Safety Cage - ${extLadderMat} ${cageHeightCode}`,
         quantity: externalLadderQty,
         unitPrice: 0
       });
     }
   }
 
-  // Bolts for FRP (13 per panel side, HDG or SS304)
+  // Bolts for FRP (13 per panel side) — use user's selected material
+  const bnwMat = normalizeAccessoryMaterial(bnwMaterial);
   const totalPanels = roofCount + (perimeter * heightPanels) + (lengthPanels * widthPanels);
   const boltCount = totalPanels * 13 * 2; // 13 bolts per side, 2 sides
   bom.accessories.push({
-    sku: `BNW-HDG-FRP`,
-    description: `Bolts, Nuts & Washers - HDG for FRP (${boltCount} pcs approx)`,
+    sku: `BNW-${bnwMat}-FRP`,
+    description: `Bolts, Nuts & Washers - ${bnwMat} for FRP (${boltCount} pcs approx)`,
     quantity: Math.ceil(boltCount / 100),
     unitPrice: 0
   });
@@ -2649,7 +2662,7 @@ export function calculateSteelBOM(inputs) {
     });
 
     // Safety Cage - format: SafetyCage-{height}m-{material} or SafetyCage-{height}ft-{material}
-    if (safetyCage || height > 3) {
+    if (safetyCage && height > 3) {
       let cageHeightCode;
       let cageMaterial = externalLadderMaterial;
       // Map material names to database format

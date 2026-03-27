@@ -25,12 +25,14 @@ export default function TankInputs({ inputs, setInputs }) {
   }, [inputs.material, inputs.panelType]);
 
   // Auto-select matching accessory materials based on tank material
+  // FRP tanks default to HDG accessories (no FRP ladders/BNW in database)
+  // Steel tanks default accessories to match the tank material
   useEffect(() => {
-    // MS tanks use HDG accessories (standard coating), all others match tank material
-    const accessoryMat = inputs.material === 'MS' ? 'HDG' : inputs.material;
-    // WLI doesn't come in FRP — default to HDG for FRP tanks
-    const wliMat = (inputs.material === 'FRP' || inputs.material === 'MS') ? 'HDG' : inputs.material;
-    if (['SS316', 'SS304', 'HDG', 'MS', 'FRP'].includes(inputs.material)) {
+    const mat = inputs.material;
+    const accessoryMat = mat === 'FRP' ? 'HDG' : mat;
+    // WLI is a standard Ball Type product — for FRP default to HDG
+    const wliMat = mat === 'FRP' ? 'HDG' : mat;
+    if (['SS316', 'SS304', 'HDG', 'MS', 'FRP'].includes(mat)) {
       setInputs(prev => ({
         ...prev,
         wliMaterial: wliMat,
@@ -46,6 +48,13 @@ export default function TankInputs({ inputs, setInputs }) {
       }));
     }
   }, [inputs.material]);
+
+  // Auto-clear safety cage when height drops to 3m or below
+  useEffect(() => {
+    if (inputs.height <= 3 && inputs.safetyCage) {
+      setInputs(prev => ({ ...prev, safetyCage: false }));
+    }
+  }, [inputs.height]);
 
   const handleChange = (field, value) => {
     setInputs(prev => ({ ...prev, [field]: value }));
@@ -1017,22 +1026,25 @@ export default function TankInputs({ inputs, setInputs }) {
           </div>
         </div>
 
-        {/* Safety Cage */}
+        {/* Safety Cage — only available when tank height > 3m */}
         <div className="mb-4">
           <div className="flex items-center">
             <input
               type="checkbox"
               id="safetyCage"
-              checked={inputs.safetyCage || false}
+              checked={inputs.height > 3 ? (inputs.safetyCage || false) : false}
               onChange={(e) => handleChange('safetyCage', e.target.checked)}
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              disabled={inputs.height <= 3}
+              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded disabled:opacity-50"
             />
-            <label htmlFor="safetyCage" className="ml-2 text-sm font-medium text-gray-700">
+            <label htmlFor="safetyCage" className={`ml-2 text-sm font-medium ${inputs.height <= 3 ? 'text-gray-400' : 'text-gray-700'}`}>
               Safety Cage (for external ladder)
             </label>
           </div>
           <p className="text-xs text-gray-500 ml-6 mt-1">
-            Required when external ladder exceeds 3m height
+            {inputs.height <= 3
+              ? 'Safety cage available for tanks above 3m height'
+              : 'Required when external ladder exceeds 3m height'}
           </p>
         </div>
 

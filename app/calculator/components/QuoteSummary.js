@@ -73,13 +73,21 @@ export default function QuoteSummary({ bom, inputs }) {
     setExportError(null);
 
     try {
-      // Dynamic import to avoid SSR issues
       const { generatePDF } = await import('../../lib/pdfGenerator');
-      const fileName = await generatePDF(bom, inputs);
-      console.log(`✅ PDF exported: ${fileName}`);
+
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('PDF timed out after 30 seconds')), 30000)
+      );
+
+      const fileName = await Promise.race([
+        generatePDF(bom, inputs),
+        timeoutPromise
+      ]);
+
+      console.log('PDF exported: ' + fileName);
     } catch (error) {
       console.error('PDF export error:', error);
-      setExportError('Failed to export PDF. Please try again.');
+      setExportError(error.message || 'Failed to export PDF. Please try again.');
     } finally {
       setIsExporting(false);
     }

@@ -1,9 +1,36 @@
 // app/calculator/components/BOMResults.js
-// Version: 3.0.0
-// Updated: Phase 3 - Added FRP tie rod system sections (tieRods, hardware, stayPlates)
-// Preserved: All v2.0.0 functionality (stays, cleats) and v1.3.0 (roofSupport, supports, accessories, pipeFittings)
+// Version: 3.1.0
+// Updated: Added PDF export button and inputs prop
+// Preserved: All v3.0.0 functionality (13 BOM sections, grand total)
 
-export default function BOMResults({ bom }) {
+'use client';
+
+import { useState } from 'react';
+
+export default function BOMResults({ bom, inputs }) {
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportError, setExportError] = useState(null);
+
+  const handleExportPDF = async () => {
+    setIsExporting(true);
+    setExportError(null);
+    try {
+      const { generatePDF } = await import('../../lib/pdfGenerator');
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('PDF timed out after 30 seconds')), 30000)
+      );
+      const fileName = await Promise.race([
+        generatePDF(bom, inputs),
+        timeoutPromise
+      ]);
+      console.log('PDF exported: ' + fileName);
+    } catch (error) {
+      console.error('PDF export error:', error);
+      setExportError(error.message || 'Failed to export PDF. Please try again.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
   // Section color scheme (matching PDF)
   const sectionColors = {
     base: 'bg-blue-50 border-blue-300',
@@ -188,7 +215,38 @@ export default function BOMResults({ bom }) {
             {totalLineItems} line items across {activeSections} sections
           </p>
         </div>
+        <button
+          onClick={handleExportPDF}
+          disabled={isExporting}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all ${
+            isExporting
+              ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              : 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm'
+          }`}
+        >
+          {isExporting ? (
+            <>
+              <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+              Generating...
+            </>
+          ) : (
+            <>
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Export PDF
+            </>
+          )}
+        </button>
       </div>
+      {exportError && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+          <p className="text-sm text-red-700">{exportError}</p>
+        </div>
+      )}
 
       {/* Table Header */}
       <div className="grid grid-cols-12 gap-4 px-4 py-3 bg-gray-800 text-white font-semibold rounded-lg mb-4 text-sm">
