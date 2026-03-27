@@ -29,15 +29,25 @@ export function AuthProvider({ children }) {
   };
 
   useEffect(() => {
-    // Check active session on mount
+    let timeoutId;
+
+    // Check active session on mount with 5s timeout to prevent infinite hang
     const getSession = async () => {
       try {
+        timeoutId = setTimeout(() => {
+          console.warn('⚠️ Auth check timed out after 5s — proceeding without session');
+          setLoading(false);
+        }, 5000);
+
         const { data: { session } } = await supabase.auth.getSession();
+        clearTimeout(timeoutId);
+
         setUser(session?.user ?? null);
         if (session?.user) {
           await fetchAndSetProfile(session.user.id);
         }
       } catch (error) {
+        clearTimeout(timeoutId);
         console.warn('⚠️ Auth session expired or invalid, signing out:', error.message);
         setUser(null);
         clearProfile();
@@ -67,7 +77,10 @@ export function AuthProvider({ children }) {
       }
     );
 
-    return () => subscription.unsubscribe();
+    return () => {
+      clearTimeout(timeoutId);
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signIn = async (email, password) => {

@@ -1,8 +1,8 @@
+'use client';
+
 // app/calculator/components/QuoteSummary.js
 // Version: 1.3.0
 // Updated: Fixed dimension display to use actual dimensions (dimensionMode conversion)
-
-'use client';
 
 import { useState } from 'react';
 

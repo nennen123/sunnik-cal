@@ -1,3 +1,5 @@
+'use client';
+
 // app/calculator/components/TankInputs.js
 // Version: 2.2.0
 // Fixed: dimensionMode now uses inputs state as source of truth (not local state)

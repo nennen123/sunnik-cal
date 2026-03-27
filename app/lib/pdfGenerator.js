@@ -1,5 +1,3 @@
-'use client';
-
 // Sunnik Tank Quote PDF Generator
 // Version: 1.3.0
 

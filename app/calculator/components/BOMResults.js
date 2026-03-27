@@ -1,9 +1,9 @@
+'use client';
+
 // app/calculator/components/BOMResults.js
 // Version: 3.1.0
 // Updated: Added PDF export button and inputs prop
 // Preserved: All v3.0.0 functionality (13 BOM sections, grand total)
-
-'use client';
 
 import { useState } from 'react';
 
