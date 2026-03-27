@@ -2618,10 +2618,11 @@ export function calculateSteelBOM(inputs) {
 
   // Helper function to get ladder material code for database
   const getLadderMaterialCode = (selectedMaterial) => {
-    // Database has: HDG, FRP, SS304 (no SS316 ladders)
+    // Database has: HDG, MS, FRP, SS304 (no SS316 ladders)
     // If SS316 selected, use SS304 as fallback
     if (selectedMaterial === 'SS316') return 'SS304';
     if (selectedMaterial === 'SS304') return 'SS304';
+    if (selectedMaterial === 'MS') return 'MS';
     if (selectedMaterial === 'FRP') return 'FRP';
     return 'HDG'; // Default to HDG
   };
