@@ -25,25 +25,38 @@ export default function TankInputs({ inputs, setInputs }) {
   }, [inputs.material, inputs.panelType]);
 
   // Auto-select matching accessory materials based on tank material
-  // FRP tanks default to HDG accessories (no FRP ladders/BNW in database)
-  // Steel tanks default accessories to match the tank material
+  // FRP tanks: mixed defaults (SS304 internal/BNW, HDG external/WLI, FRP manhole)
+  // Steel tanks: accessories match tank material
   useEffect(() => {
     const mat = inputs.material;
-    const accessoryMat = mat === 'FRP' ? 'HDG' : mat;
-    // WLI is a standard Ball Type product — for FRP default to HDG
-    const wliMat = mat === 'FRP' ? 'HDG' : mat;
-    if (['SS316', 'SS304', 'HDG', 'MS', 'FRP'].includes(mat)) {
+    if (!['SS316', 'SS304', 'HDG', 'MS', 'FRP'].includes(mat)) return;
+
+    if (mat === 'FRP') {
       setInputs(prev => ({
         ...prev,
-        wliMaterial: wliMat,
-        internalLadderMaterial: accessoryMat,
-        externalLadderMaterial: accessoryMat,
-        manholeMaterial: accessoryMat,
-        bnwMaterial: accessoryMat,
+        wliMaterial: 'HDG',
+        internalLadderMaterial: 'SS304',
+        externalLadderMaterial: 'HDG',
+        manholeMaterial: 'FRP',
+        bnwMaterial: 'SS304',
         pipeFittings: (prev.pipeFittings || []).map(pf => ({
           ...pf,
-          outsideMaterial: accessoryMat,
-          insideMaterial: accessoryMat
+          outsideMaterial: 'HDG',
+          insideMaterial: 'HDG'
+        }))
+      }));
+    } else {
+      setInputs(prev => ({
+        ...prev,
+        wliMaterial: mat,
+        internalLadderMaterial: mat,
+        externalLadderMaterial: mat,
+        manholeMaterial: mat,
+        bnwMaterial: mat,
+        pipeFittings: (prev.pipeFittings || []).map(pf => ({
+          ...pf,
+          outsideMaterial: mat,
+          insideMaterial: mat
         }))
       }));
     }
