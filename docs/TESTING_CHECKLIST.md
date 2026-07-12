@@ -76,7 +76,7 @@ Expected Results:
 - Partition Span: 5 panels
 - Base AB Support: (5-4) = 1 panel
 - Partition Base Corners: 2 BCL + 2 BCR = 4
-- Partition Walls (per tier): 2 Cφ + 3 Bφ = 5 panels
+- Partition Walls (per tier): 2 C¢ + 3 B¢ = 5 panels
 - Total Partition Panels: 5 × 3 tiers = 15 panels
 
 Status: [ ] PASS  [ ] FAIL
@@ -95,7 +95,7 @@ Expected Results:
 - Partition Span: 10 panels (square tank)
 - Base AB: (10-4) = 6 per partition × 2 = 12 panels
 - Partition BCL/BCR: 2 × 2 partitions = 8 corners
-- Partition Walls: (2 Cφ + 8 Bφ) × 4 tiers × 2 partitions = 80 panels
+- Partition Walls: (2 C¢ + 8 B¢) × 4 tiers × 2 partitions = 80 panels
 
 Status: [ ] PASS  [ ] FAIL
 Notes: _________________________
@@ -131,7 +131,7 @@ Run each test and verify:
 ### Price Lookup Validation
 - [ ] All generated SKUs exist in sku_prices.csv
 - [ ] No SKUs with $0.00 price (except intentional)
-- [ ] "our_final_price" column used correctly
+- [ ] "market_final_price" column used correctly (NEVER our_final_price)
 - [ ] Line totals calculated properly (qty × price)
 
 ### Quantity Validation

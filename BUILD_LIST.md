@@ -25,6 +25,9 @@
 | Add BUILD_LIST.md + wire into CLAUDE.md (Ground-Truth Docs + DoD step 8) | Jul 12 2026 | `e94f2c6`, `573a88e` | Build clean; owner review |
 | Fix stale pointers to archived files (QUICK_REFERENCE Memory → docs/archive/) | Jul 12 2026 | `4b563a4` | Non-archive docs re-grepped; navigational pointers repathed |
 | Archive defunct Nov-2025 tracking workflow (HOW_TO_USE_TRACKING, SESSION_TEMPLATE → docs/archive/) | Jul 12 2026 | `5ffb965` | Clean git-mv renames; inbound links only in CHANGELOG (history, left as-is) |
+| Reconcile GIT_WORKFLOW.md (lib/→app/lib/, archived refs, dead template lines) + link from CLAUDE.md | Jul 12 2026 | `dd42170` | Residual-ref grep clean; kept live git discipline |
+| Archive one-time Phase 0 commit snapshots (GIT_COMMIT_GUIDE, COMMIT_SUMMARY → docs/archive/) | Jul 12 2026 | `638fae4` | Clean git-mv renames; redundant with GIT_WORKFLOW |
+| Reconcile TESTING_CHECKLIST (φ→¢, market_final_price) + CSV_ANALYSIS (3-layer bolt wording) + Rule 6 reword | Jul 12 2026 | (this commit) | Bolt/BNW pricing traced in code + verified vs Supabase 5-row BNW check |
 
 ---
 
@@ -45,6 +48,7 @@
 | 11 | **Odd-Shape Tank Calculator** (L-shape, U-shape, column cutout) | 🟢 Low (Phase 2) | A non-rectangular tank enquiry the grid model can't handle |
 | 12 | **Autodesk Phase 4 revisit** | 🟢 Low (Phase 4) | After Phases 2–3 land and CAD export becomes a priority |
 | 13 | **Delete `app/test-calc/` debug page** | 🟢 Low (cleanup) | Once auth-less calculator debugging is no longer needed |
+| 14 | **FRP panel-bolt SKU string mismatch** — FRP path emits `BNW-{mat}-FRP` (e.g. `BNW-SS304-FRP`), which does not exist in DB; `getPrice` Strategy 6 fuzzy-resolves it to `BNW-FRP-SET` (RM 45.00) so **the price is currently correct**, but the BOM/PDF shows a phantom SKU and correctness is fragile (depends on `BNW-FRP-SET` being the only `BNW-*FRP*` key). Fix ≈ emit `BNW-FRP-SET` directly (one line). | 🟡 P2 (cosmetic + robustness, not a mispricing) | Verify against a real FRP quote's bolt total first; or a new `BNW-*FRP*` SKU is added (would break the fuzzy match) |
 
 ---
 
@@ -57,6 +61,7 @@
 | **> 2 partition configurations** | A real ≥3-partition engineering drawing is available to validate against |
 | **FRP external-brace BOM** (currently simplified) | A validated FRP external-brace drawing is provided |
 | **FRP 5m+ tanks** (special-request sizes) | A firm special-request order defines the exact spec/pricing |
+| **Per-piece `BN300` bolt itemization** (replace aggregate `BNW-*-SET` lines with individual `BN300…` SKUs × per-piece `market_final_price`) | Owner decides quotes must itemize individual bolt SKUs |
 
 ---
 

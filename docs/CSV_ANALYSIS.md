@@ -583,17 +583,20 @@ All 7 critical questions have been answered! Ready to proceed to Supabase.
 ---
 
 ### **2. Bolt Box Quantities** ✅ ANSWERED
-**Answer:** Bolts priced PER PIECE or PER SET - NO box conversion!
+**Answer (three layers):**
+1. **Procurement:** bolts are **purchased from suppliers per BOX** (procurement-side fields `PURCHASE_UOM` / `conversion_rate`).
+2. **Quoting:** the calculator **quotes customers per PIECE / SET** using `market_final_price` — **never** apply `conversion_rate` or `PURCHASE_UOM` when quoting.
+3. **In the BOM:** panel bolts appear as aggregate `BNW-{mat}-SET` lines in **lots of 100** (`qty = ceil(pieces/100)`), priced by the SET SKU's `market_final_price`.
 
 **CSV Analysis:**
-- **SAD_UOM:** PCS (200 items) or SET (176 items)
-- **PURCHASE_UOM:** Same as sales (PCS or SET)
-- **conversion_rate:** ALL = 1 (no conversion needed)
+- **SAD_UOM:** PCS (200 items) or SET (176 items) — the *sales/quoting* unit
+- **PURCHASE_UOM:** procurement unit (per box for bolts bought in bulk)
+- **conversion_rate:** = 1 for the sampled bolt SKUs (these rows already carry a per-piece/per-set sales price in `market_final_price`)
 - **Examples:**
-  - `BN300A0BM10025` = SS316 M10×25mm = RM 0.88 **per piece**
+  - `BN300A0BM10025` = SS316 M10×25mm = RM 0.88 **per piece** (`market_final_price`)
   - Sets = Bolt + Nut + Washer as complete **set**
 
-**Calculator:** Direct multiplication, no box conversion needed!
+**Calculator:** quote via `market_final_price` (per piece/set), never via `conversion_rate`/`PURCHASE_UOM`.
 
 ---
 
@@ -677,7 +680,7 @@ All 7 critical questions have been answered! Ready to proceed to Supabase.
 
 ---
 
-**Last Updated:** 2025-11-07  
+**Last Updated:** 2026-07-12  
 **Status:** ✅ COMPLETE - All Questions Answered, Ready for Supabase!  
 **Next:** Design Supabase schema and upload CSV data
 
@@ -690,7 +693,7 @@ All 7 critical questions have been answered! Ready to proceed to Supabase.
 **Key Findings Summary:**
 - ✅ 4,486 Panels (FRP + Steel)
 - ✅ 907 WLI items (organized by height + material)
-- ✅ 376 Bolts (priced per piece/set, no conversion)
+- ✅ 376 Bolts (purchased per box; quoted per piece/set via market_final_price)
 - ✅ 192 I-beams (for custom fabrication)
 - ✅ 301 Vortex inhibitors (LPCB + optional)
 - ✅ 17 Manholes (complete assemblies)
