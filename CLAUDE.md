@@ -189,11 +189,13 @@ Work is finished only when **all** of these are true:
 5. **Update the newest root `SESSION_HANDOVER_*.md`** (or add a new dated one) with what changed.
 6. **Commit** with a clear `Type: description` message and **push** to `main`.
 7. **Tag** if this is a milestone.
+8. **Update `BUILD_LIST.md`**, then owner re-syncs GitHub files in Claude project knowledge.
 
 ---
 
 ## Ground-Truth Docs (read these; ignore the stale ones)
 
+- **`BUILD_LIST.md`** (repo root) — current backlog and done log; update at every session close.
 - **Current state / recent changes:** the newest root `SESSION_HANDOVER_*.md` (**newest date wins** — currently `SESSION_HANDOVER_Mar27_2026.md`).
 - **Session history:** `docs/CHANGELOG.md`.
 - **Business-rule reference:** `docs/QUICK_REFERENCE.md`, `docs/FRP_vs_STEEL_COMPLETE_3.md`, `docs/ACCESSORIES_COMPLETE.md` (dated but useful for formula detail — verify against code before acting).
