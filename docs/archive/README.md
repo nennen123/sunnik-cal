@@ -12,3 +12,5 @@ Kept for history only.
 - `PROJECT_STATUS_TRACKER.md` — Nov 2025 status tracker
 - `DAILY_WORK_LOG.md` — Nov 2025 work log
 - `CURRENT_SESSION.md` — Nov 2025 session snapshot
+
+Also archived: the Nov-2025 tracking workflow docs (HOW_TO_USE_TRACKING, SESSION_TEMPLATE) — that process is replaced by BUILD_LIST.md + root SESSION_HANDOVER files per CLAUDE.md.
