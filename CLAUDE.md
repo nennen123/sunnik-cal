@@ -1,406 +1,212 @@
 # CLAUDE.md — Sunnik Tank Calculator
 
-> **Last Updated:** March 17, 2026
-> **Version:** 2.4.0 (deployed)
-> **Owner:** Non-coder building with AI assistance. Accuracy over speed, always.
+> **Last Updated:** July 12, 2026
+> **Deployed version:** v2.4.0 (latest git tag)
+> **Owner:** Non-coder building with AI assistance (Claude Code inside Cursor). **Accuracy over speed, always.**
+
+This file is the single source of truth for how to work in this repo. Read it fully before touching code. The **14 Hard Rules** below are non-negotiable. When in doubt, verify against the code — never assume.
 
 ---
 
 ## What This Project Is
 
-A B2B industrial pricing calculator for **square sectional panel water storage tanks**. Sales agents input tank dimensions, material, and options → the app calculates every component (panels, stays, cleats, bolts, accessories) → generates a professional PDF quotation with real pricing from a database of 11,578 SKUs.
+A B2B industrial pricing tool for **square sectional panel water storage tanks**. A sales agent enters tank dimensions, material, and options → the app calculates every component (panels, stays, cleats, bolts, accessories) → it produces **two outputs**: a detailed **BOM PDF** (raw cost) and a customer-facing **Sales Quote PDF** (marked-up price). Pricing comes from a Supabase database of 11,578 SKUs.
 
-**Live:** https://sunnik-cal.vercel.app/calculator
-**GitHub:** https://github.com/nennen123/sunnik-cal
-**Company:** Sunnik Water Tank Solutions (sunnik.net)
+- **Live (primary):** https://calc.sunnik.net/calculator
+- **Live (Vercel fallback):** https://sunnik-cal.vercel.app/calculator
+- **Route is `/calculator`, not root.** Visiting it while logged out **redirects to sunnik.net by design** (`ProtectedRoute`). That redirect is intended behaviour — do **not** diagnose it as a broken domain or auth bug.
+- **GitHub:** https://github.com/nennen123/sunnik-cal — auto-deploys from `main` via Vercel (1–2 min).
+- **Company:** Sunnik Water Tank Solutions (sunnik.net).
 
 ---
 
-## Tech Stack
+## ⛔ HARD RULES — Never Break These
 
-- **Framework:** Next.js 15.5.4 (App Router, NOT Pages Router)
-- **Styling:** Tailwind CSS
-- **Database:** Supabase PostgreSQL (11,578 SKUs in `products` table)
-- **Deployment:** Vercel (auto-deploys from `main` branch)
-- **Package Manager:** npm
+1. **Pricing column:** always read `market_final_price`. **Never** `our_final_price` (that is internal cost — leaking it into a quote is a serious error).
+2. **Partition SKU symbol:** use the cent symbol **`¢`**, **never** phi `φ`. The database SKUs use `¢`. (Old docs say `φ` — they are wrong; see Archived Docs.)
+3. **FRP = Metric panels + Type 2 only.** No Imperial FRP, no Type 1 FRP. Selecting FRP in the UI auto-forces Metric + Type 2 + FRP build standard (`TankInputs.js`). FRP tanks **5m+ height are special-request sizes**.
+4. **SS316 / SS304 = Type 1 only.** The Type 2 button grays out for these materials.
+5. **New Supabase table ⇒ all 3 GRANTs immediately.** Every new table must be created with `GRANT` to **`anon`**, **`authenticated`**, and **`service_role`** in the same SQL. Required by the Supabase Data API policy enforced **Oct 30, 2026**. Non-negotiable.
+6. **Bolts are sold per BOX, not per piece.** Box quantities are material-specific. Do not price bolts as loose pieces.
+7. **Bolts per side:** FRP = **13**, SS316/SS304 = **20**, HDG/MS = **16**. (Verified in `bomCalculator.js`.)
+8. **Safety cage only when `height > 3` (strict `>`).** Requires **both** the checkbox **AND** the height check — the code is `if (safetyCage && height > 3)` (`&&`, never `||`), in both the steel and FRP paths.
+9. **FRP roof brackets are always ABS.** FRP roof pipe is ABS (MS1390) or UPVC (SS245).
+10. **`'use client'` must be LINE 1** of any client component. **Never** put `'use client'` in `app/lib/` files — it breaks SSR.
+11. **The two PDF totals differ BY DESIGN.** BOM PDF = raw database cost. Sales Quote = `cost × 1.20 × (1 + markup/100)` (default markup 30% → `× 1.30`). The `1.20` is an operations multiplier; the markup is agent-adjustable. Do **not** "fix" the discrepancy.
+12. **SS316 ladder falls back to SS304 BY DESIGN** — there are no SS316 ladder SKUs in the DB (`getLadderMaterialCode()`). Do not "fix" this.
+13. **One change at a time. Test immediately. Never rebuild a whole file without testing. Never assume — verify.**
+14. **Never edit backup files.** Ignore and never modify any file matching `*.bak`, `*.bak2`, `*.backup.js`, `*_backup*`, `*.pre-*.backup.js`. The live files are the unsuffixed ones (e.g. edit `bomCalculator.js`, never `bomCalculator_v2.3.3_backup.js`).
 
-## Commands
+---
+
+## How To Work With Me (the owner is a non-coder)
+
+- Give **clear, step-by-step** instructions. State exactly **which file** and **where** in it.
+- **Prefer complete file replacements** over fragile partial edits — *except* for `bomCalculator.js`, which is huge and validated: make **surgical edits** there.
+- **Database changes:** give me SQL to paste into the Supabase **SQL Editor** (include the 3 GRANTs per Rule 5).
+- **Documentation before implementation.** This project was rebuilt **3 times** because business logic was under-documented. Write down the rule before coding it.
+- **Standard test configs:** `5×10×4m Metric + 1 partition` and `5×10×3ft Imperial + 1 partition`.
+- Each key file carries its **own version number** in a header comment — **bump it on every change**.
+- Bugs tracked as **BUG-00X**. Milestones get **git tags** (restore points — Cursor Composer has overwritten working code before).
+- **Cache issues:** `rm -rf .next && npm run dev`.
+
+---
+
+## Tech Stack & Commands
+
+- **Next.js 15** (App Router, `^15.5.9`), **Tailwind**, **Supabase PostgreSQL**, **jsPDF** (+ `jspdf-autotable`), **Vercel**. Package manager: **npm**.
 
 ```bash
-npm run dev          # Start dev server (usually localhost:3001)
-npm run build        # Production build
-npm run lint         # ESLint check
+npm run dev      # dev server (Turbopack)
+npm run build    # production build — MUST pass with zero errors before "done"
+npm run lint     # ESLint (backup files produce harmless warnings)
 ```
+
+> There is **no automated test suite** wired for validation. Do **not** reference `npm run test:validate` or similar — it was planned in old docs but never built. Verification is manual (see Definition of Done).
 
 ---
 
-## Project Structure
+## Key Files
 
-```
-sunnik_calc/
-├── app/
-│   ├── layout.js                        # Root layout with globals.css
-│   ├── page.js                          # Landing page (redirects)
-│   ├── login/
-│   │   └── page.js                      # Login page
-│   ├── context/
-│   │   └── AuthContext.js               # Supabase auth provider
-│   ├── components/
-│   │   └── ProtectedRoute.js            # Auth guard wrapper
-│   ├── calculator/
-│   │   ├── page.js                      # Main calculator page (v2.2.0, 367 lines)
-│   │   └── components/
-│   │       ├── TankInputs.js            # Input form (v2.1.0)
-│   │       ├── BOMResults.js            # BOM display table (v1.2, 313 lines)
-│   │       └── QuoteSummary.js          # Price summary
-│   └── lib/
-│       ├── bomCalculator.js             # ⭐ CORE ENGINE (v2.2.1, ~1400 lines)
-│       ├── cleatCalculator.js           # Cleat calculations (v2.3.0, 261 lines)
-│       ├── pdfGenerator.js              # PDF quote generation (v1.3.0, 422 lines)
-│       ├── supabasePriceLoader.js       # Supabase price fetching with fallbacks
-│       ├── priceLoader.js               # CSV price loader (backup method)
-│       └── supabase.js                  # Supabase client connection
-├── public/
-│   └── sku_prices.csv                   # Price database backup (11,578 rows)
-└── documentation/                       # Handover docs and changelogs
-```
+| File | Version | Role |
+|------|---------|------|
+| `app/lib/bomCalculator.js` | **2.3.3** | ⭐ Core calculation engine (~2,700 lines). Surgical edits only. |
+| `app/lib/cleatCalculator.js` | 2.3.0 | Cleat formulas (validated, 8 tanks). |
+| `app/lib/frpCalculator.js` | — | FRP-specific panel/support logic. |
+| `app/lib/bomEngine.js` | — | Panel-quantity helper. |
+| `app/lib/pdfGenerator.js` | 1.3.0 | Renders **13 BOM sections**. No `'use client'` (Rule 10). |
+| `app/lib/supabasePriceLoader.js` | — | Price lookup, `market_final_price`, 5-min cache, multi-strategy fallback. |
+| `app/lib/priceLoader.js` | — | CSV backup loader (`public/sku_prices.csv`). |
+| `app/lib/accessoryDefaults.js` | — | Material-based accessory presets (MS1390 / SS245). |
+| `app/lib/accessoryPricing.js` | — | Accessory prices + SKU generation. |
+| `app/lib/quoteService.js` | — | Save/load quotes, serial numbers, revisions. |
+| `app/lib/userProfile.js` | — | User role / markup profile. |
+| `app/lib/supabase.js` | — | Supabase client. |
+| `app/calculator/page.js` | **2.1.0** | Main calculator page; computes `finalPrice` (Rule 11). |
+| `app/calculator/components/TankInputs.js` | **2.2.0** | Input form; FRP forcing + accessory defaults. |
+| `app/calculator/components/BOMResults.js` | **3.1.0** | BOM table + BOM PDF export. |
+| `app/calculator/components/SalesQuoteSummary.js` | 2.0.0 | Customer quote view; applies `1.20 × markup`; auto-saves quote. |
+| `app/calculator/components/*.jsx` | — | Sub-cards: `TankAccessories`, `TankReinforcement`, `BoltNutWasher`, `PipeFittingsCards`, `PriceSummary`, `SkidBase`, `Remarks`. |
+| `app/context/AuthContext.js` | — | Supabase auth; **5s `getSession()` timeout** (prevents infinite loading). |
+| `app/components/ProtectedRoute.js` | — | Auth guard (logged-out ⇒ redirect to sunnik.net, by design). |
+
+**Database:** Supabase `products` table, 11,578 SKUs, key column `sku`. 110 SKUs at `price = 0` as of Jul 2026 (specialty nozzles, SS ladders — known, low priority).
+
+Routes: `/calculator` (main), `/quotes` (saved quotes), `/login`. `/test` and `/test-calc` are auth-less debug pages (deletable).
 
 ---
 
-## ⚠️ CRITICAL RULES — Never Break These
+## Business Logic (essentials — deep detail in `docs/`)
 
-### 1. Do NOT rewrite entire files
-The calculation engine (`bomCalculator.js`) is 1,400+ lines of validated logic. Every formula has been verified against real engineering drawings. Make **surgical edits only** — never regenerate the whole file.
+**Steel types.** Type 1 = 45°-then-90° joint, diagonal (S) stays, materials SS316/SS304/HDG/MS. Type 2 = 90° L-joint, horizontal (HS) + vertical (VS) stays, HDG/MS only.
 
-### 2. Test after every change
-```bash
-npm run build    # Must pass with zero errors
-npm run dev      # Then manually verify in browser
-```
+**Panel classes** (by grid position): A interior, B edge, C corner, AB partition-junction, BCL/BCR corners; Type 1 partitions use `B¢`/`C¢`, Type 2 partitions use `PA` (+ `TBAB` stay-junction).
 
-### 3. Do NOT change these validated formulas without explicit instruction:
-- **Panel classification** (A/B/C/AB/BC/BCL/BCR) — validated against 10+ real drawings
-- **Thickness progression** (SANS 10329:2020 standard) — engineering requirement
-- **Stay arrangement** (Type 1 & Type 2) — validated against 10 tanks
-- **Cleat calculations** — validated against 8 tanks
-- **FRP tie rod system** — 100% accuracy confirmed
-- **SKU generation patterns** — must match the 11,578 SKUs in database
+**Panel sizes:** Metric 1m×1m (`m`), Imperial 4ft/1.22m (`i`). FRP always Metric.
 
-### 4. Price column
-Always use `market_final_price` from the database. Never use `our_final_price` — that's internal cost.
+**Thickness progression (SANS 10329:2020):** thicker at bottom. 1–2m → 3.0mm; 3m → base/T1 4.5, upper 3.0; 4m → 5.0 / 5.0 / 4.5 / 3.0 / 3.0. Thickness codes: 3.0→`3`, 2.5→`25`, 4.5→`45`, 5.0→`5`.
 
-### 5. Git workflow
-Always commit after changes with clear messages:
-```bash
-git add .
-git commit -m "fix: description of what changed"
-git push origin main
-```
-Vercel auto-deploys from `main` within 1-2 minutes.
+**Accessory defaults** (auto-set on material change in `TankInputs.js`; user-overridable):
+
+| Field | SS316 | SS304 | HDG | MS | FRP |
+|-------|-------|-------|-----|-----|-----|
+| Internal Ladder | SS316* | SS304 | HDG | MS | SS304 |
+| External Ladder | SS316* | SS304 | HDG | MS | HDG |
+| WLI | SS316 | SS304 | HDG | MS | HDG |
+| BNW | SS316 | SS304 | HDG | MS | SS304 |
+| Manhole | SS316 | SS304 | HDG | MS | FRP |
+| Bolts/side | 20 | 20 | 16 | 16 | 13 |
+
+*Internal/External ladder SKUs normalize SS316 → SS304 in `getLadderMaterialCode()` (Rule 12).
 
 ---
 
-## Business Logic — How Tanks Work
+## SKU Format Cheat Sheet
 
-### Panel Types (Position-Based)
-Panels are classified by their position in the tank grid:
-
-| Code | Position | Description |
-|------|----------|-------------|
-| A | Interior | All 4 neighbours are tank panels |
-| B | Edge | One side is the perimeter wall |
-| C | Corner | Two adjacent sides are perimeter (convex 90°) |
-| AB | Partition junction | Where partition meets perimeter wall |
-| BCL | Corner Left | Left-handed corner panel |
-| BCR | Corner Right | Right-handed corner panel |
-| B¢ / C¢ | Partition column (Type 1) | Partition-specific panels (¢ symbol) |
-| PA | Partition panel (Type 2) | Full partition panel, bottom tier thickness only |
-
-### Steel Types
-| Type | Joint Style | Stay Direction | Materials |
-|------|-------------|----------------|-----------|
-| Type 1 | 45° bend then 90° | Diagonal (S stays) | SS316, SS304, HDG, MS |
-| Type 2 | 90° L-shape | Horizontal (HS) + Vertical (VS) | HDG, MS only |
-
-**Partition panel differences:** Type 1 uses B¢/C¢ panels; Type 2 uses PA panels instead.
-
-### Panel Sizes
-- **Metric:** 1m × 1m (code: `m`)
-- **Imperial:** 4ft × 4ft / 1.22m × 1.22m (code: `i`)
-- **FRP:** Always metric (1m × 1m)
-
-### Materials & Codes
-| Material | SKU Code | Notes |
-|----------|----------|-------|
-| SS316 | S2 | Premium stainless, Type 1 only |
-| SS304 | S1 | Standard stainless, Type 1 only |
-| HDG | HDG | Hot Dip Galvanized, Type 1 or 2 |
-| Mild Steel | MS | Budget option, Type 1 or 2 |
-| FRP/GRP | FRP | Fiberglass, completely different panel system |
-
-### Thickness Progression (SANS 10329:2020)
-Thicker panels at the bottom (more water pressure), thinner at the top:
-
-| Height | Base | Tier 1 (bottom) | Tier 2 | Tier 3 | Tier 4 (top) |
-|--------|------|-----------------|--------|--------|---------------|
-| 1m | 3.0mm | 3.0mm | — | — | — |
-| 2m | 3.0mm | 3.0mm | 3.0mm | — | — |
-| 3m | 4.5mm | 4.5mm | 3.0mm | 3.0mm | — |
-| 4m | 5.0mm | 5.0mm | 4.5mm | 3.0mm | 3.0mm |
-
-### Partition Panel System
-Total partition panels = span × tiers × partitions (all types).
-
-**Type 1 Steel:** Uses Cφ (corners, bottom tier only, qty=2×P) and Bφ (edges). Upper tier middles use standard A panels.
-
-**Type 2 Steel:** Uses PA panels (qty=span×P, bottom tier thickness) and TBAB stay junction panels (qty=span×P). Upper tier middles use AB panels. Note: PA SKUs include diameter code even for HDG.
-
-**FRP:** Uses P panels (0.93M, edge tiers) and PF panels (1M full, middle tiers) with tier-specific depth codes counting down from bottom (e.g., P30, PF20, P10 for a 3-tier tank).
+```
+Steel Type 1:  1[Loc][Thk]-[Size]-[Mat]           e.g. 1A4-i-S2   1B45-m-S2   1BCL5-i-HDG
+Steel Type 2:  2[Loc][Thk]-[Size]-[Ø]-[Mat]       e.g. 2A25-i-14-S1   2A45-i-14-HDG   (Ø14 upper / Ø18 bottom tier)
+Type 2 Part.:  2PA[Thk]-[Size]-[Ø]-[Mat]          e.g. 2PA6-m-18-HDG   (+ 2TBAB… stay junction)
+FRP panels:    3[Sec][Depth]-FRP[-A|-B]           e.g. 3S40-FRP-B  3S30-FRP-A  3R00-FRP  (B=structural bottom tier, A=upper)
+FRP accessory: [Code]-FRP-[Size]                  e.g. IL-FRP-40M
+FRP partition: 3P[Depth]-FRP-A (edge) / 3PF[Depth]-FRP-A (middle)
+```
+- **Material codes:** SS316→`S2`, SS304→`S1`, HDG→`HDG`, MS→`MS`, FRP→`FRP`.
+- **Partition SKUs use `¢`, never `φ`** (Rule 2).
+- **FRP tier stacking bottom→top:** `S40 → S30 → S20 → S10` (depth code counts down; bottom = highest).
+- **Tie Rod length:** `(span × 1000) − 420mm` (fittings), capped at **5800mm** (longer spans get jointed studs + couplers).
 
 ---
 
-## SKU Format Patterns
+## Validated Formula Systems — do NOT re-derive (see `docs/`)
 
-### Steel Type 1
-```
-Format: 1[Location][Thickness]-[Size]-[Material]
-Example: 1A3-i-S1    → Type 1, A panel, 3mm, Imperial, SS304
-         1B45-m-S2   → Type 1, B panel, 4.5mm, Metric, SS316
-         1BCL5-i-HDG → Type 1, Base Corner Left, 5mm, Imperial, HDG
-```
+These are validated against real engineering drawings. Change only on explicit instruction, then re-validate.
 
-### Steel Type 2
-```
-Format: 2[Location][Thickness]-[Size]-[Diameter]-[Material]
-Example: 2A3-i-14-S1    → Type 2, A panel, 3mm, Imperial, Ø14, SS304
-         2A45-i-14-HDG  → Type 2, A panel, 4.5mm, Imperial, Ø14, HDG
-
-Note: HDG Type 2: Most panels omit diameter code, but PA (partition) panels include it
-```
-
-### Steel Type 2 Partition
-```
-Format: 2PA[Thickness]-[Size]-[Diameter]-[Material]
-Example: 2PA6-m-18-HDG  → Type 2, Partition A, 6mm, Metric, Ø18, HDG
-         2PA45-i-14-S1  → Type 2, Partition A, 4.5mm, Imperial, Ø14, SS304
-
-Note: PA panels always use bottom tier thickness. Ø18 at bottom tier, Ø14 at upper tiers.
-Upper tier partition middles use standard AB panels (not PA).
-
-TBAB (Partition Stay Junction):
-Format: 2TBAB[Thickness]-[Size]-[Diameter]-[Material]
-Example: 2TBAB45-m-18-HDG → Type 2, TBAB, 4.5mm, Metric, Ø18, HDG
-Note: Total qty = span × partitions. Height code breakdown (1H/2H/std) not yet implemented.
-```
-
-### FRP
-```
-Format: 3[Section][DepthCode]-FRP[-Suffix]
-Example: 3B20-FRP      → Base panel, 2m depth
-         3S30-FRP-B    → Sidewall, 3m depth, Type B (structural)
-         3S30-FRP-A    → Sidewall, 3m depth, Type A (standard)
-         3R00-FRP      → Roof panel
-
-FRP Partition:
-  3P[DepthCode]-FRP-A   → P panel (0.93M, edge tiers — bottom & top)
-  3PF[DepthCode]-FRP-A  → PF panel (1M full, middle tiers)
-  Depth codes count down: bottom=totalTiers×10, top=10
-  Example (3-tier): 3P30-FRP-A, 3PF20-FRP-A, 3P10-FRP-A
-```
-
-### Thickness Code Convention
-- 3.0mm → `3` (NOT `30`)
-- 2.5mm → `25`
-- 4.5mm → `45`
-- 5.0mm → `5`
-
----
-
-## Stay System (Internal Bracing)
-
-### Type 1 Stays (Diagonal)
-- SKU prefixes: S, OP, SP (stays, opening stays, partition stays)
-- Diagonal 45° angle stays connecting walls to floor
-- OP stays span across tank width (horizontal)
-
-### Type 2 Stays (Horizontal + Vertical)
-- SKU prefixes: 2HS, 2VS, 2HSO, 2HSP
-- Horizontal stays (HS) between walls
-- Vertical stays (VS) from wall to floor — **only at Tier 1**
-- HSO = Horizontal Stay Opening (spans across tank)
-
-### Tier Distribution Formula
-```javascript
-doubleTiers = Math.max(0, H - 2);   // Bottom tiers get double stays
-singleTiers = Math.min(H, 2);        // Top 2 tiers get single stays
-hasWelded = (H >= 4);                 // Tier 1 uses welded components when H≥4
-```
-
-### OP Stay Rule
-Tanks with width < 20ft (~6m): some floor stays are replaced with OP (horizontal across tank).
-
----
-
-## Cleat System (Panel Connectors)
-
-### Cleat Types
-| Code | Purpose | SKU Pattern |
-|------|---------|-------------|
-| CA | Main junction cleat | `CleatA-{hole}-{material}` |
-| CAL | Left oriented | `CleatAL-{hole}-{material}` |
-| CE | Edge connection | `CleatE-{material}` |
-| CEW | Edge welded (bottom tier) | `CleatEW-{material}` |
-| CC | Corner cleat | `CC-{hole}-{material}` |
-
-### Key Cleat Formulas (v2.3.0)
-```javascript
-// Edge cleats based on panel junctions
-totalBaseJunctions = (L - 1) * (W - 1);
-interiorBaseJunctions = Math.max(0, (L - 3) * (W - 3));
-perimeterBaseJunctions = totalBaseJunctions - interiorBaseJunctions;
-wallJunctionsPerLevel = 2 * (L - 1) + 2 * (W - 1);
-
-// When H >= 4: welded cleats at bottom
-CleatEW = perimeterBaseJunctions + wallJunctionsPerLevel;
-CleatE = interiorBaseJunctions + (wallJunctionsPerLevel * (H - 2));
-```
-
----
-
-## FRP-Specific Rules
-
-FRP tanks are completely different from steel:
-- Always metric (1m × 1m panels)
-- Depth codes based on total tank height (S10=1m, S20=2m... S60=6m)
-- Bottom tier walls use Type B (structural), upper tiers use Type A
-- Half-tier panels (D15) for heights like 3.5m, 4.5m
-- Internal support = Tie Rods + Stay Plates (NOT angle stays)
-- External support = SHS Beams + Bend Angles (NOT I-beams)
-- Build standards: SS245:2014, MS1390:2010 (different from steel)
-
----
-
-## Price Loading
-
-### Primary: Supabase
-```javascript
-// supabasePriceLoader.js fetches from Supabase products table
-// Uses market_final_price column
-// 5-minute cache to avoid excessive queries
-// Multi-strategy fallback: exact → case-insensitive → prefix → fuzzy
-```
-
-### Backup: CSV
-```javascript
-// priceLoader.js loads from public/sku_prices.csv
-// Same SKU matching strategies
-// Used if Supabase is unreachable
-```
-
-### If SKU not found → placeholder RM 150 (flagged with ⚠️)
-
----
-
-## PDF Generation
-
-`pdfGenerator.js` creates professional quotations with:
-- Company header (Sunnik branding)
-- Tank specifications and dimensions
-- Complete BOM breakdown by section (base, walls, partition, roof, stays, cleats, accessories)
-- Price totals with markup capability
-- Terms and conditions
-
-Uses jsPDF library. Each BOM section is rendered as a table.
-
----
-
-## Authentication
-
-- Supabase Auth (email + password)
-- AuthContext.js provides `useAuth()` hook
-- ProtectedRoute.js wraps calculator pages
-- Login redirects to /calculator, logout redirects to sunnik.net
-- User tiers: Agent, Representative (10-30% markup), Admin (full access)
-
----
-
-## What's Validated & Working (v2.4.0)
-
-| Feature | Version | Validated Against |
-|---------|---------|-------------------|
-| Steel panel calculations | v1.0 | 8 test configurations |
-| FRP panel calculations | v1.0 | 8 test configurations |
-| Type 1 stay system | v2.2.1 | 10 real engineering drawings |
-| Type 2 stay system | v2.2.1 | 10 real engineering drawings |
-| Cleat system (both types) | v2.3.0 | 8 real tank BOMs |
-| Type 2 partition (PA panels) | v2.3.1 | 8 real engineering drawings |
-| FRP tie rod system | v2.1.0 | 100% match to drawings |
-| Supabase price loading | v1.0 | 11,578 SKUs |
-| PDF generation | v1.3.0 | Manual review |
-| Type 1 partition wall | v2.4.0 | 4 real engineering drawings |
-| Type 2 partition (PA + TBAB) | v2.4.0 | 7 real engineering drawings |
-| FRP partition (P/PF panels) | v2.4.0 | 1 real engineering drawing |
-| Sealant & foam tape | v2.4.0 | 12 real engineering drawings |
-
----
-
-## Known Limitations
-
-- 336 SKUs in database have price = 0 (awaiting supplier pricing)
-- Some accessory SKUs use placeholder prices (IL, EL, SafetyCage for rare sizes)
-- Partition calculations for more than 2 partitions may need additional validation
-- FRP external brace BOM is simplified (not fully validated)
-- Foam tape and sealant gum quantities are estimated with 10% buffer (within 5-8% of real drawings)
-- TBAB height code breakdown (1H/2H/std) not implemented — only total quantity
-- BOP/CDL/CDR panels not implemented (found in only 1 of 13 drawings — likely special case)
-- FRP patch tape (PF0000012) not yet implemented
-
----
-
-## Phase 2 Features (Planned, Not Started)
-
-1. **Engineering Drawing Generator** — SVG panel & stay arrangement diagrams
-2. **Odd-Shape Tank Calculator** — L-shape, U-shape, column cutout tanks using grid-based input
-3. ~~**TBAB partition panels**~~ — ✅ Implemented in v2.4.0 (total qty only, height code breakdown pending)
-4. ~~**FRP partition panels**~~ — ✅ Implemented in v2.4.0 (P/PF with tier-specific depth codes)
-5. See `PHASE2_DEVELOPMENT_PLAN.md` in documentation folder for full spec
+- **Stay systems (v2.2.1, 10 tanks).** Type 1: narrow (W≤2) uses OP stays; wide (W≥3ft & H≥4) uses welded. Type 2: VS (tier 1 only) + HS tier logic. Tier split: `doubleTiers = max(0, H−2)`, `singleTiers = min(H, 2)`, `hasWelded = H≥4`.
+- **Cleats (v2.3.0, 8 tanks).** `CleatE`/`CleatEW` at panel `+` junctions; `CleatA = 2×(L−1)/9`; corner `CC`: Type 2 = `12 + P×6`, Type 1 = `CC1 + CC2 + CCP`. Welded cleats (`CleatEW`) at bottom when `H≥4`.
+- **FRP Tie Rod system.** `EndStuds = joints×H×4`; `StayPlate2H = perimeter×1.5`; `LHB = studs×1.05`; `Washers = studs×1.1`; `Hooks = studs×0.3`; `LongNuts = studs×0.5`. Stay plates: none@1m, cleat@1.5m, `2H`@2–2.5m, `2H+cleat`@3–3.5m, `2H+4H+cleat`@4m+.
+- **Estimated (known ~overage, do not treat as bugs):** foam tape ≈ +5% (`1.32 × joints`); sealant gum ≈ +8% (`1.045 × intersections`).
 
 ---
 
 ## Coding Conventions
 
-- Use `export function` for all public functions in lib files
-- Console.log with emoji prefixes: 📦 (BOM), 🔍 (lookup), ⚠️ (warning)
-- JSDoc comments on all exported functions
-- Prices always in MYR (Malaysian Ringgit)
-- Panel dimensions always in panels (integer), converted from meters/feet internally
-- L = length panels, W = width panels, H = height panels (tier count)
+- `export function` for all public lib functions; JSDoc on exported functions.
+- Console logs use emoji prefixes: 📦 BOM, 🔍 lookup, ⚠️ warning.
+- Prices always MYR (Malaysian Ringgit). Dimensions carried as **panels** (integers): `L`=length, `W`=width, `H`=height/tier count.
+- Match the style of the file you are editing (naming, comment density, idiom).
+
+---
+
+## Known Limitations (don't treat these as bugs; don't half-build them)
+
+- TBAB height-code breakdown (1H/2H/std) not implemented — total quantity only.
+- BOP / CDL / CDR panels not implemented (appeared in 1 of 13 drawings — likely special case).
+- FRP patch tape (`PF0000012`) not yet implemented.
+- FRP external-brace BOM is simplified (not fully validated).
+- Partition counts **> 2** may need extra validation.
+
+---
+
+## Known Non-Bugs / Environment Quirks
+
+- **Logged-out `/calculator` redirects to sunnik.net** — intended `ProtectedRoute` behaviour (Rule/URL note above).
+- **VPN blocks Supabase** — if auth or prices hang, turn VPN off.
+- **Auth 5s timeout** — a slow (not dead) Supabase may briefly bounce to login before the session resolves. Acceptable tradeoff vs. infinite hang.
+- **Two PDF totals differ** — by design (Rule 11).
+- **110 SKUs at price = 0** (as of Jul 2026) and rare accessories may show placeholder `RM 150` (flagged `⚠️`). Known, low priority.
+
+---
+
+## ✅ Definition of Done
+
+Work is finished only when **all** of these are true:
+
+1. `npm run build` passes with **zero errors**.
+2. Open the calculator in a browser and run **both** standard configs — `5×10×4m Metric + 1 partition` **and** `5×10×3ft Imperial + 1 partition`.
+3. Visually verify **all 13 BOM sections** render and totals are sane (BOM raw vs. Sales `×1.20×markup` per Rule 11).
+4. **Bump the version header** in every changed file.
+5. **Update the newest root `SESSION_HANDOVER_*.md`** (or add a new dated one) with what changed.
+6. **Commit** with a clear `Type: description` message and **push** to `main`.
+7. **Tag** if this is a milestone.
+
+---
+
+## Ground-Truth Docs (read these; ignore the stale ones)
+
+- **Current state / recent changes:** the newest root `SESSION_HANDOVER_*.md` (**newest date wins** — currently `SESSION_HANDOVER_Mar27_2026.md`).
+- **Session history:** `docs/CHANGELOG.md`.
+- **Business-rule reference:** `docs/QUICK_REFERENCE.md` (**partially stale — trust decision trees, not paths/bug statuses; it still says use `φ`, which Rule 2 overrides**), `docs/FRP_vs_STEEL_COMPLETE_3.md`, `docs/ACCESSORIES_COMPLETE.md` (dated but useful for formula detail — verify against code before acting).
+
+> ⚠️ **`docs/archive/` is HISTORICAL (Nov–Dec 2025). Never act on any rule or bug status in it.** Several statements there are the **opposite** of current hard rules (e.g. those files say use `φ`; current code uses `¢`) and they describe bugs that are already fixed. Treat archived status docs as history only.
 
 ---
 
 ## Emergency Recovery
 
-If something breaks:
 ```bash
-git log --oneline -10        # See recent commits
-git checkout <commit-hash>   # Revert to working state
-git stash                    # Save current changes aside
+git log --oneline -10        # recent commits
+git tag                       # restore points (last stable: v2.4.0)
+git checkout <hash>           # revert to a working state
+git stash                     # set current changes aside
 ```
-
-Last confirmed working tag: `v2.3.0`
-
----
-
-## Quick Reference — File Responsibilities
-
-| When you need to... | Edit this file |
-|---------------------|----------------|
-| Change panel calculations | `app/lib/bomCalculator.js` |
-| Change cleat calculations | `app/lib/cleatCalculator.js` |
-| Change PDF output format | `app/lib/pdfGenerator.js` |
-| Change price lookup logic | `app/lib/supabasePriceLoader.js` |
-| Change input form fields | `app/calculator/components/TankInputs.js` |
-| Change BOM display table | `app/calculator/components/BOMResults.js` |
-| Change calculator page layout | `app/calculator/page.js` |
-| Change authentication flow | `app/context/AuthContext.js` |
-| Add/update SKU prices | Supabase dashboard → products table |
