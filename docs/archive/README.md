@@ -14,3 +14,5 @@ Kept for history only.
 - `CURRENT_SESSION.md` — Nov 2025 session snapshot
 
 Also archived: the Nov-2025 tracking workflow docs (HOW_TO_USE_TRACKING, SESSION_TEMPLATE) — that process is replaced by BUILD_LIST.md + root SESSION_HANDOVER files per CLAUDE.md.
+
+Also archived (Jul 12 2026): `GIT_COMMIT_GUIDE.md` and `COMMIT_SUMMARY.md` — one-time "commit the Phase 0 docs" snapshots (reference `/mnt/user-data/outputs/`, nonexistent files, "download from Claude interface", 80% status). GIT_COMMIT_GUIDE is redundant with the live `docs/GIT_WORKFLOW.md`; COMMIT_SUMMARY also carried a since-clarified "bolts per piece, no box" claim.
