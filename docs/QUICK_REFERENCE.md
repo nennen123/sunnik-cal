@@ -403,8 +403,8 @@ Run validation tests to ensure:
 - `app/calculator/page.js` - Main calculator interface
 
 **Memory:**
-- `docs/START_HERE.md` - Read first every session
-- `docs/CURRENT_STATUS.md` - Current state and bugs
+- `docs/archive/START_HERE.md` - (HISTORICAL — see CLAUDE.md and root SESSION_HANDOVER for current state)
+- `docs/archive/CURRENT_STATUS.md` - (HISTORICAL — see CLAUDE.md and root SESSION_HANDOVER for current state)
 - `docs/QUICK_REFERENCE.md` - This file
 - `docs/CHANGELOG.md` - Session history
 
