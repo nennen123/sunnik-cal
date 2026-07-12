@@ -22,6 +22,8 @@
 | CLAUDE.md model-handover upgrade (14 hard rules, corrected versions, DoD) | Jul 12 2026 | `d10c2a8` | `npm run build` clean; owner review |
 | Archive stale Nov-2025 status docs → `docs/archive/` | Jul 12 2026 | `d6c41c9` (restore tag `pre-claudemd-upgrade` → `e93d073`) | 5 files intact in archive; build clean |
 | Reconcile QUICK_REFERENCE.md (φ→¢, paths, remove stale flag) | Jul 12 2026 | `edbdadb` | Residual-φ grep clean; build clean |
+| Add BUILD_LIST.md + wire into CLAUDE.md (Ground-Truth Docs + DoD step 8) | Jul 12 2026 | `e94f2c6`, `573a88e` | Build clean; owner review |
+| Fix stale pointers to archived files (QUICK_REFERENCE Memory → docs/archive/) | Jul 12 2026 | `4b563a4` | Non-archive docs re-grepped; navigational pointers repathed |
 
 ---
 
