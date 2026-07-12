@@ -27,7 +27,7 @@
 | Archive defunct Nov-2025 tracking workflow (HOW_TO_USE_TRACKING, SESSION_TEMPLATE → docs/archive/) | Jul 12 2026 | `5ffb965` | Clean git-mv renames; inbound links only in CHANGELOG (history, left as-is) |
 | Reconcile GIT_WORKFLOW.md (lib/→app/lib/, archived refs, dead template lines) + link from CLAUDE.md | Jul 12 2026 | `dd42170` | Residual-ref grep clean; kept live git discipline |
 | Archive one-time Phase 0 commit snapshots (GIT_COMMIT_GUIDE, COMMIT_SUMMARY → docs/archive/) | Jul 12 2026 | `638fae4` | Clean git-mv renames; redundant with GIT_WORKFLOW |
-| Reconcile TESTING_CHECKLIST (φ→¢, market_final_price) + CSV_ANALYSIS (3-layer bolt wording) + Rule 6 reword | Jul 12 2026 | (this commit) | Bolt/BNW pricing traced in code + verified vs Supabase 5-row BNW check |
+| Reconcile TESTING_CHECKLIST (φ→¢, market_final_price) + CSV_ANALYSIS (3-layer bolt wording) + Rule 6 reword | Jul 12 2026 | `0b120ee` | Bolt/BNW pricing traced in code + verified vs Supabase 5-row BNW check |
 
 ---
 
