@@ -1,6 +1,6 @@
 # Git Workflow - CRITICAL for Memory System
 
-**Last Updated:** 2025-11-07
+**Last Updated:** 2026-07-12
 **Purpose:** Ensure every change is committed so Project Knowledge can find it
 **CRITICAL:** Without git commits, the memory system WILL NOT WORK!
 
@@ -63,7 +63,7 @@ git add .
 
 # OR add specific files/folders
 git add docs/
-git add lib/bomCalculator.js
+git add app/lib/bomCalculator.js
 
 # Step 4: Commit with descriptive message
 git commit -m "Type: Brief description
@@ -73,8 +73,7 @@ Detailed description of what changed and why.
 - Bullet point 1
 - Bullet point 2
 
-Fixes: BUG-XXX
-Tests: X/6 passing"
+- Reference bug ID if applicable (BUG-00X)"
 
 # Step 5: Push to remote (CRITICAL!)
 git push
@@ -104,12 +103,11 @@ This completes the 5-file memory system."
 ```bash
 git commit -m "fix: Correct bolt calculation formula (BUG-001)
 
-Fixed bolt quantity calculation in lib/bomCalculator.js:
+Fixed bolt quantity calculation in app/lib/bomCalculator.js:
 - Added material-specific bolts per side (13/16/20)
 - Applied shared-edge division (÷2)
 - Added 20% perimeter buffer (×1.2)
 
-Tests: 6/6 validation tests now passing
 Fixes: BUG-001"
 ```
 
@@ -344,7 +342,7 @@ Memory system broken! ❌
 
 ## 📋 **Daily Commit Checklist**
 
-Copy this into your DAILY_WORK_LOG.md:
+Copy this into your session notes (`BUILD_LIST.md` / root `SESSION_HANDOVER_*.md`):
 
 ```markdown
 ## End of Session Checklist
@@ -356,7 +354,7 @@ Copy this into your DAILY_WORK_LOG.md:
 - [ ] Pushed to remote with `git push`
 - [ ] Verified with `git log -1`
 - [ ] Updated CHANGELOG.md with session entry
-- [ ] Updated CURRENT_STATUS.md if needed
+- [ ] Updated BUILD_LIST.md and root SESSION_HANDOVER if needed
 
 If ALL boxes checked ✅ → Memory system will work next session!
 If ANY box unchecked ❌ → Next session will lose memory!
@@ -421,7 +419,7 @@ Future you will thank present you:
 git checkout -b fix/bolt-calculation
 
 # Make changes and commit
-git add lib/bomCalculator.js
+git add app/lib/bomCalculator.js
 git commit -m "fix: Implement correct bolt formula"
 
 # Merge back to main when done
@@ -481,4 +479,4 @@ Fixes: BUG-002"
 
 **Remember: Git commits are not optional - they are REQUIRED for the memory system to work!**
 
-**Last Updated:** 2025-11-07
+**Last Updated:** 2026-07-12

@@ -48,6 +48,7 @@ A B2B industrial pricing tool for **square sectional panel water storage tanks**
 - **Standard test configs:** `5×10×4m Metric + 1 partition` and `5×10×3ft Imperial + 1 partition`.
 - Each key file carries its **own version number** in a header comment — **bump it on every change**.
 - Bugs tracked as **BUG-00X**. Milestones get **git tags** (restore points — Cursor Composer has overwritten working code before).
+- Full git discipline (commit format, recovery, branching): `docs/GIT_WORKFLOW.md`.
 - **Cache issues:** `rm -rf .next && npm run dev`.
 
 ---
