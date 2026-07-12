@@ -196,7 +196,7 @@ Work is finished only when **all** of these are true:
 
 - **Current state / recent changes:** the newest root `SESSION_HANDOVER_*.md` (**newest date wins** — currently `SESSION_HANDOVER_Mar27_2026.md`).
 - **Session history:** `docs/CHANGELOG.md`.
-- **Business-rule reference:** `docs/QUICK_REFERENCE.md` (**partially stale — trust decision trees, not paths/bug statuses; it still says use `φ`, which Rule 2 overrides**), `docs/FRP_vs_STEEL_COMPLETE_3.md`, `docs/ACCESSORIES_COMPLETE.md` (dated but useful for formula detail — verify against code before acting).
+- **Business-rule reference:** `docs/QUICK_REFERENCE.md`, `docs/FRP_vs_STEEL_COMPLETE_3.md`, `docs/ACCESSORIES_COMPLETE.md` (dated but useful for formula detail — verify against code before acting).
 
 > ⚠️ **`docs/archive/` is HISTORICAL (Nov–Dec 2025). Never act on any rule or bug status in it.** Several statements there are the **opposite** of current hard rules (e.g. those files say use `φ`; current code uses `¢`) and they describe bugs that are already fixed. Treat archived status docs as history only.
 

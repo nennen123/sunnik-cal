@@ -1,6 +1,6 @@
 # Quick Reference - Business Rules & Calculations
 
-**Last Updated:** 2025-11-06
+**Last Updated:** 2026-07-12
 **Purpose:** Condensed business rules for quick lookup
 **Read This:** Every time you start working on the calculator
 
@@ -205,7 +205,7 @@ Calculation: (146 × 4 × 20) ÷ 2 × 1.2 = 7,008 bolt sets
 - `1B45-m-S2` = Base, 4.5mm, Metric, SS316
 - `1A3-i-S1` = Wall, 3mm, Imperial, SS304
 - `1R15-m-HDG` = Roof, 1.5mm, Metric, HDG
-- `1Bφ45-m-S2` = Partition Base, 4.5mm, Metric, SS316 (note φ)
+- `1B¢45-m-S2` = Partition Base, 4.5mm, Metric, SS316 (note ¢)
 
 **Location Codes:**
 - `B` = Base/Bottom panel
@@ -216,7 +216,7 @@ Calculation: (146 × 4 × 20) ÷ 2 × 1.2 = 7,008 bolt sets
 - `R` = Roof panel
 - `R(AV)` = Roof Air Vent
 - `MH` = Manhole
-- `Bφ` / `Cφ` = Partition panels (φ = phi symbol)
+- `B¢` / `C¢` = Partition panels (¢ = cent symbol)
 
 **Material Codes:**
 - `S2` = SS316
@@ -345,7 +345,7 @@ Use these to test calculations:
 3. ❌ **Wrong bolts per side** - Material-specific: 13, 16, or 20
 4. ❌ **Treating FRP like steel** - FRP has different support/accessories
 5. ❌ **Imperial FRP panels** - FRP is Metric only, no Imperial
-6. ❌ **Partition SKU missing φ** - Partitions need phi symbol in SKU
+6. ❌ **Partition SKU missing ¢** - Partitions need cent symbol in SKU
 
 ### **Always Check**
 
@@ -391,19 +391,16 @@ Run validation tests to ensure:
 ## 📁 File Locations
 
 **Core Logic:**
-- `lib/bomCalculator.js` - Main calculation engine
-- `lib/priceLoader.js` - CSV loading and price lookup
-- `lib/materialRules.js` - [TO CREATE] FRP vs Steel rules
-- `lib/buildStandards.js` - [TO CREATE] SONS, BSI, LPCB rules
+- `app/lib/bomCalculator.js` - Main calculation engine
+- `app/lib/priceLoader.js` - CSV loading and price lookup
+- `app/lib/materialRules.js` - [TO CREATE] FRP vs Steel rules
+- `app/lib/buildStandards.js` - [TO CREATE] SONS, BSI, LPCB rules
 
 **Data:**
 - `public/sku_prices.csv` - 11,578 SKU pricing (use `market_final_price`)
 
 **UI:**
 - `app/calculator/page.js` - Main calculator interface
-
-**Tests:**
-- `tests/validation.test.js` - [TO CREATE] Real quote validation
 
 **Memory:**
 - `docs/START_HERE.md` - Read first every session
@@ -447,4 +444,4 @@ What's the height?
 
 **Remember:** This is a QUICK reference. For complete details, see full documentation in project files.
 
-**Last Updated:** 2025-11-06
+**Last Updated:** 2026-07-12
