@@ -24,6 +24,7 @@
 | Reconcile QUICK_REFERENCE.md (φ→¢, paths, remove stale flag) | Jul 12 2026 | `edbdadb` | Residual-φ grep clean; build clean |
 | Add BUILD_LIST.md + wire into CLAUDE.md (Ground-Truth Docs + DoD step 8) | Jul 12 2026 | `e94f2c6`, `573a88e` | Build clean; owner review |
 | Fix stale pointers to archived files (QUICK_REFERENCE Memory → docs/archive/) | Jul 12 2026 | `4b563a4` | Non-archive docs re-grepped; navigational pointers repathed |
+| Archive defunct Nov-2025 tracking workflow (HOW_TO_USE_TRACKING, SESSION_TEMPLATE → docs/archive/) | Jul 12 2026 | `5ffb965` | Clean git-mv renames; inbound links only in CHANGELOG (history, left as-is) |
 
 ---
 
