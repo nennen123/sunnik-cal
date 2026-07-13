@@ -16,3 +16,12 @@ Kept for history only.
 Also archived: the Nov-2025 tracking workflow docs (HOW_TO_USE_TRACKING, SESSION_TEMPLATE) — that process is replaced by BUILD_LIST.md + root SESSION_HANDOVER files per CLAUDE.md.
 
 Also archived (Jul 12 2026): `GIT_COMMIT_GUIDE.md` and `COMMIT_SUMMARY.md` — one-time "commit the Phase 0 docs" snapshots (reference `/mnt/user-data/outputs/`, nonexistent files, "download from Claude interface", 80% status). GIT_COMMIT_GUIDE is redundant with the live `docs/GIT_WORKFLOW.md`; COMMIT_SUMMARY also carried a since-clarified "bolts per piece, no box" claim.
+
+## Files added here on Jul 13, 2026 (from project knowledge)
+
+These 5 historical analysis/derivation docs previously lived only in the Claude project knowledge and were never in the repo. They are superseded by `CLAUDE.md`, `STAY_FORMULA_REFERENCE_v2_2_1.md`, and the current partition references. Preserved for re-validation data only — **never to be acted on as current rules.**
+- `STAY_ARRANGEMENT_COMPLETE_ANALYSIS_v2.md` — stay-arrangement derivation analysis
+- `STEEL_TANK_STAY_SYSTEM_COMPLETE.md` — steel-tank stay-system derivation analysis
+- `FRP_TIEROD_ANALYSIS_PHASE3C.md` — FRP tie-rod system Phase 3C analysis
+- `SUNNIK_AUTH_IMPLEMENTATION.md` — auth implementation notes
+- `SunnikCalculator.pdf` — reference PDF
