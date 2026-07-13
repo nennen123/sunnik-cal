@@ -1,6 +1,6 @@
 # CLAUDE.md — Sunnik Tank Calculator
 
-> **Last Updated:** July 12, 2026
+> **Last Updated:** July 13, 2026
 > **Deployed version:** v2.4.0 (latest git tag)
 > **Owner:** Non-coder building with AI assistance (Claude Code inside Cursor). **Accuracy over speed, always.**
 
@@ -50,6 +50,56 @@ A B2B industrial pricing tool for **square sectional panel water storage tanks**
 - Bugs tracked as **BUG-00X**. Milestones get **git tags** (restore points — Cursor Composer has overwritten working code before).
 - Full git discipline (commit format, recovery, branching): `docs/GIT_WORKFLOW.md`.
 - **Cache issues:** `rm -rf .next && npm run dev`.
+
+---
+
+## 🧭 Working Discipline (for any AI model on this project)
+
+These behaviours are what make a session productive here. Follow them
+regardless of which model you are. When capability is limited, be MORE
+conservative, never less.
+
+**1. Ground truth before opinion.** Start every session by reading
+CLAUDE.md → BUILD_LIST.md → the newest root `SESSION_HANDOVER_*.md` (newest
+date wins), and quote back the version/tag + handover date for the owner to
+confirm. If project-knowledge copies conflict with the repo, the repo wins —
+ask the owner to confirm from `git log` before building on the disputed fact.
+
+**2. Recon before any edit.** Never propose a diff against imagined code.
+Quote the current lines first (or make "read the file and show me the
+current function" step 1 of the Claude Code prompt). Name which of the 13
+BOM sections, which PDFs, and which material paths (SS316/SS304/HDG/MS/FRP)
+the change touches.
+
+**3. One change = one prompt = one commit.** Never combine two risks. Test
+in the browser before the next change. `bomCalculator.js` gets surgical
+edits only — never full-file rewrites.
+
+**4. "Done" is a hypothesis.** A build that passes proves compilation, not
+correct quantities. A fix is done only when: commit hash exists → the
+originally-wrong number now shows correct in the browser → one *other*
+material path still shows sane numbers → version header bumped. Old docs'
+statuses are leads, not facts; anything in `docs/archive/` is disqualified
+as evidence.
+
+**5. Drawings are the source of truth for formulas.** A formula is
+validated only when it reproduces ≥2 independent engineering drawings
+exactly. One drawing = a lead. Never transplant a pattern across Type 1 /
+Type 2 / FRP without its own data. Write the derived rule down BEFORE
+coding it (this project was rebuilt 3× for skipping that).
+
+**6. Output style.** The owner is a non-coder: give paste-ready fenced
+prompts for Claude Code, exact file names, and paste-ready SQL for the
+Supabase SQL Editor (with the 3 GRANTs on any new table). State expected
+results in concrete numbers ("partition panels should show 12, not 34").
+One recommended next step, not a menu. Accuracy over speed — say "I need to
+verify" rather than guessing.
+
+**7. Close every session durably.** Verified work → BUILD_LIST.md Done Log
+with hashes; parked items get written resurface triggers; write a new dated
+handover; commit both together and push; remind the owner to re-sync the
+lean file set into project knowledge (CLAUDE.md, BUILD_LIST.md, handovers,
+docs/CHANGELOG.md, docs/QUICK_REFERENCE.md — never app/ or archives).
 
 ---
 
